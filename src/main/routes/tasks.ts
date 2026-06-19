@@ -1,0 +1,290 @@
+import { Router, Response } from 'express'
+import { z } from 'zod'
+import { prisma } from '../lib/prisma'
+import { AppError } from '../middleware/error'
+import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth'
+
+const router = Router()
+
+router.use(authMiddleware)
+
+const createTaskSchema = z.object({
+  project_id: z.string().uuid(),
+  title: z.string().min(1).max(300),
+  description: z.string().max(5000).optional(),
+  assignee_id: z.string().uuid().optional(),
+  status: z.enum(['pending', 'in_progress', 'completed']).optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
+  start_date: z.string().optional(),
+  due_date: z.string().optional(),
+  estimated_hours: z.number().int().positive().optional(),
+})
+
+const createCommentSchema = z.object({
+  message: z.string().min(1).max(5000),
+})
+
+// GET /api/tasks
+router.get('/', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const projectId = (req.query.project_id as string) || ''
+    const assigneeId = (req.query.assignee_id as string) || ''
+    const status = (req.query.status as string) || ''
+    const priority = (req.query.priority as string) || ''
+    const search = (req.query.search as string) || ''
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100)
+    const offset = parseInt(req.query.offset as string) || 0
+
+    const where: Record<string, unknown> = {}
+    if (projectId) where.project_id = projectId
+    if (assigneeId) where.assignee_id = assigneeId
+    if (status) where.status = status.toUpperCase()
+    if (priority) where.priority = priority.toUpperCase()
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const [tasks, total] = await Promise.all([
+      prisma.task.findMany({
+        where,
+        include: {
+          assignee: { select: { id: true, name: true } },
+        },
+        take: limit,
+        skip: offset,
+        orderBy: { created_at: 'desc' },
+      }),
+      prisma.task.count({ where }),
+    ])
+
+    res.json({
+      tasks: tasks.map(t => ({
+        id: t.id,
+        project_id: t.project_id,
+        title: t.title,
+        description: t.description,
+        assignee_id: t.assignee_id,
+        assignee_name: t.assignee?.name || null,
+        assignee_initials: t.assignee?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || null,
+        status: t.status.toLowerCase(),
+        priority: t.priority.toLowerCase(),
+        start_date: t.start_date,
+        due_date: t.due_date,
+        estimated_hours: t.estimated_hours,
+        created_by: t.created_by,
+        created_at: t.created_at,
+      })),
+      total,
+      limit,
+      offset,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/tasks
+router.post('/', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const data = createTaskSchema.parse(req.body)
+
+    const task = await prisma.task.create({
+      data: {
+        project_id: data.project_id,
+        title: data.title,
+        description: data.description,
+        assignee_id: data.assignee_id,
+        status: (data.status?.toUpperCase() || 'PENDING') as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED',
+        priority: (data.priority?.toUpperCase() || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH',
+        start_date: data.start_date ? new Date(data.start_date) : undefined,
+        due_date: data.due_date ? new Date(data.due_date) : undefined,
+        estimated_hours: data.estimated_hours,
+        created_by: req.user!.userId,
+      },
+      include: {
+        assignee: { select: { id: true, name: true } },
+      },
+    })
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        user_id: req.user!.userId,
+        action: 'task_created',
+        entity_type: 'task',
+        entity_id: task.id,
+        metadata: { title: task.title },
+      },
+    })
+
+    res.status(201).json({
+      id: task.id,
+      project_id: task.project_id,
+      title: task.title,
+      description: task.description,
+      assignee_id: task.assignee_id,
+      assignee_name: task.assignee?.name || null,
+      status: task.status.toLowerCase(),
+      priority: task.priority.toLowerCase(),
+      due_date: task.due_date,
+      created_by: task.created_by,
+      created_at: task.created_at,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/tasks/:id
+router.get('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: req.params.id },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        comments: {
+          include: { user: { select: { name: true } } },
+          orderBy: { created_at: 'asc' },
+        },
+      },
+    })
+
+    if (!task) {
+      throw new AppError('Task not found', 404)
+    }
+
+    res.json({
+      id: task.id,
+      project_id: task.project_id,
+      title: task.title,
+      description: task.description,
+      assignee_id: task.assignee_id,
+      assignee_name: task.assignee?.name || null,
+      status: task.status.toLowerCase(),
+      priority: task.priority.toLowerCase(),
+      start_date: task.start_date,
+      due_date: task.due_date,
+      estimated_hours: task.estimated_hours,
+      created_by: task.created_by,
+      created_at: task.created_at,
+      comments: task.comments.map(c => ({
+        id: c.id,
+        task_id: c.task_id,
+        user_id: c.user_id,
+        user_name: c.user.name,
+        message: c.message,
+        created_at: c.created_at,
+      })),
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PUT /api/tasks/:id
+router.put('/:id', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const data = createTaskSchema.parse(req.body)
+
+    const task = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
+        project_id: data.project_id,
+        title: data.title,
+        description: data.description,
+        assignee_id: data.assignee_id,
+        status: data.status ? (data.status.toUpperCase() as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED') : undefined,
+        priority: data.priority ? (data.priority.toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH') : undefined,
+        start_date: data.start_date ? new Date(data.start_date) : undefined,
+        due_date: data.due_date ? new Date(data.due_date) : undefined,
+        estimated_hours: data.estimated_hours,
+      },
+      include: {
+        assignee: { select: { id: true, name: true } },
+      },
+    })
+
+    res.json({
+      id: task.id,
+      project_id: task.project_id,
+      title: task.title,
+      description: task.description,
+      assignee_id: task.assignee_id,
+      assignee_name: task.assignee?.name || null,
+      status: task.status.toLowerCase(),
+      priority: task.priority.toLowerCase(),
+      due_date: task.due_date,
+      created_by: task.created_by,
+      created_at: task.created_at,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/tasks/:id
+router.delete('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    await prisma.task.delete({ where: { id: req.params.id } })
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/tasks/:id/comments
+router.post('/:id/comments', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { message } = createCommentSchema.parse(req.body)
+
+    const comment = await prisma.comment.create({
+      data: {
+        task_id: req.params.id,
+        user_id: req.user!.userId,
+        message,
+      },
+      include: {
+        user: { select: { name: true } },
+      },
+    })
+
+    res.status(201).json({
+      id: comment.id,
+      task_id: comment.task_id,
+      user_id: comment.user_id,
+      user_name: comment.user.name,
+      message: comment.message,
+      created_at: comment.created_at,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/tasks/:id/comments
+router.get('/:id/comments', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { task_id: req.params.id },
+      include: { user: { select: { name: true } } },
+      orderBy: { created_at: 'asc' },
+    })
+
+    res.json({
+      comments: comments.map(c => ({
+        id: c.id,
+        user_id: c.user_id,
+        user_name: c.user.name,
+        message: c.message,
+        created_at: c.created_at,
+      })),
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+export { router as tasksRouter }
