@@ -76,10 +76,10 @@ export function DashboardPage() {
           </div>
           <div className="donut-legend">
             <span className="donut-legend__item">
-              <span className="donut-legend__dot bg-emerald-500" /> Completed
+              <span className="donut-legend__dot donut-legend__dot--completed" /> Completed
             </span>
             <span className="donut-legend__item">
-              <span className="donut-legend__dot bg-neutral-300" /> Remaining
+              <span className="donut-legend__dot donut-legend__dot--remaining" /> Remaining
             </span>
           </div>
         </Card>

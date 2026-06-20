@@ -788,6 +788,53 @@ button, a, input, select, textarea {
   border-radius: 50%;
 }
 
+.task-progress { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; }
+.task-progress__bar { flex: 1; max-width: 6rem; height: 0.375rem; background: var(--color-surface-secondary); border-radius: 999px; overflow: hidden; }
+.task-progress__fill { height: 100%; background: var(--color-accent-500); border-radius: 999px; transition: width var(--transition-fast); }
+.task-progress__text { font-size: 0.6875rem; color: var(--color-text-tertiary); white-space: nowrap; }
+
+.task-title__subtasks { font-size: 0.6875rem; color: var(--color-text-tertiary); margin-left: 1.75rem; }
+
+.detail-board-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.board-column { display: flex; flex-direction: column; gap: 0.75rem; }
+.board-column__header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; }
+.board-column__body { display: flex; flex-direction: column; gap: 0.5rem; }
+.board-column__empty { text-align: center; padding: 1.5rem 0; font-size: 0.875rem; color: var(--color-text-tertiary); }
+.board-card { cursor: pointer; transition: box-shadow var(--transition-fast); }
+.board-card:hover { box-shadow: var(--shadow-md); }
+.board-card__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.board-card__title { font-size: 0.875rem; font-weight: 600; color: var(--color-text-primary); }
+.board-card__meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.board-card__footer { display: flex; align-items: center; gap: 0.5rem; }
+
+.task-action-btn { background: none; border: none; padding: 0.25rem; cursor: pointer; color: var(--color-text-tertiary); transition: color var(--transition-fast); line-height: 0; }
+.task-action-btn:hover { color: var(--color-text-secondary); }
+.task-action-btn--danger:hover { color: var(--color-danger-500); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); max-width: 36rem; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal__header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border); }
+.modal__header-left { flex: 1; }
+.modal__title { font-size: 1.125rem; font-weight: 700; color: var(--color-text-primary); }
+.modal__desc { font-size: 0.875rem; color: var(--color-text-secondary); margin-top: 0.25rem; }
+.modal__close { background: none; border: none; padding: 0.25rem; cursor: pointer; color: var(--color-text-tertiary); transition: color var(--transition-fast); line-height: 0; }
+.modal__close:hover { color: var(--color-text-primary); }
+.modal__body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.modal__label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.375rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.modal__assignee { display: flex; align-items: center; gap: 0.5rem; }
+.modal__subtasks { border-top: 1px solid var(--color-border); padding-top: 1rem; }
+.modal__subtasks-title { font-size: 0.875rem; font-weight: 600; color: var(--color-text-primary); margin-bottom: 0.75rem; }
+.modal__subtask { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0; }
+.modal__subtask-title { font-size: 0.875rem; color: var(--color-text-primary); }
+.modal__subtask-title--completed { text-decoration: line-through; color: var(--color-text-tertiary); }
+.modal__footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.5rem; border-top: 1px solid var(--color-border); }
+
+.detail-create-desc { border: 1px solid var(--color-border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; background: var(--color-surface); color: var(--color-text-primary); min-height: 5rem; resize: vertical; width: 100%; }
+.detail-create-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.detail-create-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.375rem; }
+.detail-task-select--sm { padding: 0.25rem 0.5rem; font-size: 0.78125rem; }
+
 /* ─── Card ─── */
 .card {
   background: var(--color-surface);
@@ -947,6 +994,8 @@ button, a, input, select, textarea {
   gap: 0.25rem;
 }
 
+.donut-legend__dot--completed { background: var(--color-success-500); }
+.donut-legend__dot--remaining { background: var(--color-text-tertiary); }
 .donut-legend__dot {
   width: 0.5rem;
   height: 0.5rem;

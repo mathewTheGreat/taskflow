@@ -23,11 +23,21 @@
 - [x] TopBar (simplified — page title + theme toggle + notification bell only; no search, view tabs, or breadcrumb links)
 - [x] Projects page (list, create, progress bars)
 - [x] Project Detail page (spreadsheet view, task CRUD, subtasks, CSS class conversion)
+- [x] Subtask support — parent selector in create form, progress bar per task, child filtering in detail modal
+- [x] Task detail modal — view/change status, priority, due date; view subtasks; delete/edit actions
+- [x] Edit task modal — inline editing of title, description, priority, due date
+- [x] Board view — kanban-style columns with task cards, inline priority/status changes
+- [x] Status cycling — checkbox cycles Pending → In Progress → Completed
+- [x] Inline priority dropdown in table rows and board cards
+- [x] All filter pills wired (Due Date, Assignee, Priority, Status) — each toggles real task filtering
+- [x] Task-group "Add Task" and `⋯` detail buttons functional
 - [x] Teams page (list, create, member management)
 - [x] Settings page (profile, appearance, sign out)
 - [x] Login page (split layout, branding panel, form card)
 - [x] TopBar stripped of global search and view tabs (content mixing fix)
 - [x] All pages converted to CSS classes with `var()` — no inline `style` attributes or inline Tailwind utilities remain
+- [x] Dashboard donut legend dots converted from inline Tailwind `bg-*` to CSS classes
+- [x] Prisma client regenerated + `db push` to fix `parent_id` runtime error
 
 ## Styling Standard (Established)
 - **No inline Tailwind utilities in JSX** — all styling uses **CSS classes defined in `index.css`** with explicit `var(--color-*)` references
@@ -39,7 +49,6 @@
 
 ## Pending (Phase 2)
 - [ ] Inbox page
-- [ ] Kanban board view
 - [ ] Calendar view
 - [ ] Timeline view
 - [ ] Search & filters
