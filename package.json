@@ -47,7 +47,7 @@
     "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.5.0",
     "concurrently": "9.2.3",
-    "electron": "34.5.8",
+    "electron": "^34.5.8",
     "postcss": "8.5.15",
     "prisma": "7.8.0",
     "tailwindcss": "4.3.1",
