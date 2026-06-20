@@ -37,101 +37,83 @@ export function Sidebar({ currentPage, onNavigate, projects, onProjectSelect, ac
   ]
 
   return (
-    <div className="w-[230px] flex-shrink-0 border-r border-border bg-surface flex flex-col h-full">
-      {/* Brand */}
-      <div className="flex items-center gap-2.5 px-5 pt-6 pb-4">
-        <div className="w-8 h-8 rounded-xl bg-brand-500 flex items-center justify-center text-white shadow-sm">
+    <div className="app-sidebar">
+      <div className="sidebar-brand">
+        <div className="sidebar-brand__icon">
           <IconCheckbox />
         </div>
-        <span className="font-semibold text-[16px] text-text-primary tracking-tight">TaskFlow</span>
+        <span className="sidebar-brand__name">TaskFlow</span>
       </div>
 
-      {/* Workspace dropdown */}
-      <div className="mx-4 mb-4">
-        <button className="w-full flex items-center justify-between rounded-lg px-3.5 py-2.5 text-[13px] text-text-secondary border border-border hover:bg-surface-secondary transition-colors cursor-pointer bg-surface">
+      <div className="sidebar-workspace">
+        <button onClick={() => onNavigate('settings')} className="sidebar-workspace__btn">
           <span className="truncate font-medium">{user?.company || 'My Workspace'}</span>
-          <IconChevronDown className="text-text-tertiary" />
+          <IconChevronDown />
         </button>
       </div>
 
-      {/* Add New */}
-      <div className="px-4 mb-5">
-        <button className="w-full bg-brand-500 text-white border-none py-2.5 text-[13px] font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1.5 hover:bg-brand-600 transition-colors shadow-sm">
-          <IconPlus className="text-sm" /> Add New
+      <div className="sidebar-add-new">
+        <button onClick={() => onNavigate('projects')} className="sidebar-add-new__btn">
+          <IconPlus /> Add New
         </button>
       </div>
 
-      {/* Main nav */}
-      <nav className="flex flex-col gap-0.5 px-3 text-[13.5px]">
+      <nav className="sidebar-nav">
         {navItems.map(item => (
           <button
             key={item.label}
             onClick={item.onClick}
-            className={`flex items-center gap-3 px-3 py-[8px] rounded-lg text-left transition-colors border-none cursor-pointer ${
-              item.active
-                ? 'bg-brand-50 text-brand-600 font-semibold'
-                : 'text-text-secondary hover:bg-surface-secondary bg-transparent'
-            }`}
+            className={`sidebar-nav-item ${item.active ? 'sidebar-nav-item--active' : ''}`}
           >
-            <span className="text-[17px] flex-shrink-0">{item.icon}</span>
-            <span className="flex-1">{item.label}</span>
+            <span className="sidebar-nav-item__icon">{item.icon}</span>
+            <span className="sidebar-nav-item__label">{item.label}</span>
             {item.badge && (
-              <span className="bg-danger-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-semibold leading-none">
-                {item.badge}
-              </span>
+              <span className="sidebar-nav-item__badge">{item.badge}</span>
             )}
           </button>
         ))}
       </nav>
 
-      {/* Favorites section */}
-      <div className="mt-6 px-4">
-        <div className="flex items-center justify-between px-2 py-1">
+      <div className="sidebar-section">
+        <div className="sidebar-section-header">
           <button
             onClick={() => setFavoritesExpanded(!favoritesExpanded)}
-            className="flex items-center gap-1.5 text-[11.5px] font-semibold text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors border-none bg-transparent cursor-pointer p-0"
+            className="sidebar-section-toggle"
           >
-            {favoritesExpanded ? <IconChevronDown className="text-[10px]" /> : <IconChevronRight className="text-[10px]" />}
+            {favoritesExpanded ? <IconChevronDown /> : <IconChevronRight />}
             Favorites
           </button>
-          <button className="text-text-tertiary hover:text-text-secondary transition-colors border-none bg-transparent cursor-pointer p-0 text-sm">
+          <button className="sidebar-section-action" title="Manage favorites (coming soon)">
             <IconDotsHorizontal />
           </button>
         </div>
         {favoritesExpanded && (
-          <div className="ml-1 mt-1 text-[13px] text-text-tertiary italic px-2.5 py-2">
-            No favorites yet
-          </div>
+          <div className="sidebar-section-empty">No favorites yet</div>
         )}
       </div>
 
-      {/* Projects section */}
-      <div className="mt-4 px-4">
-        <div className="flex items-center justify-between px-2 py-1">
+      <div className="sidebar-section">
+        <div className="sidebar-section-header">
           <button
             onClick={() => setProjectsExpanded(!projectsExpanded)}
-            className="flex items-center gap-1.5 text-[11.5px] font-semibold text-text-tertiary uppercase tracking-wider hover:text-text-secondary transition-colors border-none bg-transparent cursor-pointer p-0"
+            className="sidebar-section-toggle"
           >
-            {projectsExpanded ? <IconChevronDown className="text-[10px]" /> : <IconChevronRight className="text-[10px]" />}
+            {projectsExpanded ? <IconChevronDown /> : <IconChevronRight />}
             Projects
           </button>
-          <button className="text-text-tertiary hover:text-text-secondary transition-colors border-none bg-transparent cursor-pointer p-0 text-sm">
-            <IconPlus className="text-[12px]" />
+          <button onClick={() => onNavigate('projects')} className="sidebar-section-action">
+            <IconPlus />
           </button>
         </div>
         {projectsExpanded && (
-          <div className="flex flex-col gap-0.5 mt-1 ml-1">
+          <div className="sidebar-project-list">
             {projects.map(p => (
               <button
                 key={p.id}
                 onClick={() => onProjectSelect(p.id)}
-                className={`flex items-center gap-2.5 py-[6px] px-3 rounded-lg text-[13px] text-left transition-colors border-none cursor-pointer ${
-                  activeProjectId === p.id
-                    ? 'bg-brand-50 text-brand-600 font-medium'
-                    : 'text-text-secondary hover:bg-surface-secondary bg-transparent'
-                }`}
+                className={`sidebar-project-item ${activeProjectId === p.id ? 'sidebar-project-item--active' : ''}`}
               >
-                <IconProject className="text-text-tertiary flex-shrink-0" />
+                <span className="sidebar-project-item__icon"><IconProject /></span>
                 {p.name}
               </button>
             ))}
@@ -139,37 +121,30 @@ export function Sidebar({ currentPage, onNavigate, projects, onProjectSelect, ac
         )}
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
+      <div className="sidebar-spacer" />
 
-      {/* Bottom nav */}
-      <nav className="flex flex-col gap-0.5 px-3 text-[13.5px] mb-3">
+      <nav className="sidebar-bottom">
         {bottomItems.map(item => (
           <button
             key={item.label}
             onClick={item.onClick}
-            className={`flex items-center gap-3 px-3 py-[8px] rounded-lg text-left transition-colors border-none cursor-pointer ${
-              item.active
-                ? 'bg-brand-50 text-brand-600 font-medium'
-                : 'text-text-secondary hover:bg-surface-secondary bg-transparent'
-            }`}
+            className={`sidebar-nav-item ${item.active ? 'sidebar-nav-item--active' : ''}`}
           >
-            <span className="text-[17px] flex-shrink-0">{item.icon}</span>
+            <span className="sidebar-nav-item__icon">{item.icon}</span>
             {item.label}
           </button>
         ))}
       </nav>
 
-      {/* User profile */}
-      <div className="border-t border-border px-4 py-4">
-        <div className="flex items-center gap-3 px-2">
+      <div className="sidebar-user">
+        <div className="sidebar-user__inner">
           <Avatar name={user?.name || 'User'} size="sm" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-text-primary truncate">{user?.name || 'User'}</p>
-            <p className="text-[11px] text-text-tertiary truncate">{user?.email || ''}</p>
+          <div className="sidebar-user__info">
+            <p className="sidebar-user__name">{user?.name || 'User'}</p>
+            <p className="sidebar-user__email">{user?.email || ''}</p>
           </div>
-          <button className="text-text-tertiary hover:text-text-secondary transition-colors border-none bg-transparent cursor-pointer p-0">
-            <IconChevronDown className="text-[12px]" />
+          <button onClick={() => onNavigate('settings')} className="sidebar-user__chevron">
+            <IconChevronDown />
           </button>
         </div>
       </div>

@@ -86,11 +86,11 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64 text-text-secondary">Loading project...</div>
+    return <div className="detail-loading"><span className="app-loading__text">Loading project...</span></div>
   }
 
   if (!project) {
-    return <div className="flex items-center justify-center h-64 text-text-secondary">Project not found</div>
+    return <div className="detail-loading"><span className="app-loading__text">Project not found</span></div>
   }
 
   const tabs = [
@@ -103,45 +103,38 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1.5 rounded-md hover:bg-surface-secondary text-text-secondary transition-colors">
+      <div className="detail-header">
+        <div className="detail-header__left">
+          <button onClick={onBack} className="detail-back">
             <IconArrowLeft />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-text-primary">{project.name}</h1>
+            <h1 className="detail-name">{project.name}</h1>
             {project.description && (
-              <p className="text-sm text-text-secondary">{project.description}</p>
+              <p className="detail-desc">{project.description}</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm">Share</Button>
-          <Button variant="secondary" size="sm">Automation</Button>
+        <div className="detail-header__actions">
+          <Button variant="secondary" size="sm" onClick={() => {}}>Share</Button>
+          <Button variant="secondary" size="sm" onClick={() => {}}>Automation</Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-6 text-sm text-text-tertiary border-b border-border mb-4">
+      <div className="detail-tabs">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 pb-2.5 transition-colors ${
-              activeTab === tab.id
-                ? 'text-accent-500 font-semibold border-b-2 border-accent-500 -mb-px'
-                : 'hover:text-text-secondary'
-            }`}
+            className={`detail-tab${activeTab === tab.id ? ' detail-tab--active' : ''}`}
           >
             {tab.icon} {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2.5">
+      <div className="detail-filters">
+        <div className="detail-filters__group">
           <FilterPill label="Due Date" value="All" onClick={() => {}} />
           <FilterPill label="Assignee" value="All" onClick={() => {}} />
           <FilterPill
@@ -160,24 +153,23 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
         </Button>
       </div>
 
-      {/* Create task form */}
       {showCreateTask && (
-        <Card className="mb-4">
-          <h3 className="font-semibold text-text-primary mb-3">Create New Task</h3>
-          <div className="flex flex-col gap-3">
+        <Card>
+          <h3 className="detail-create-task__title">Create New Task</h3>
+          <div className="detail-create-body">
             <Input placeholder="Task title" value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} />
-            <div className="flex gap-2">
+            <div className="detail-create-priority">
               <select
                 value={newTaskPriority}
                 onChange={e => setNewTaskPriority(e.target.value as 'low' | 'medium' | 'high')}
-                className="border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary"
+                className="detail-task-select"
               >
                 <option value="low">Low Priority</option>
                 <option value="medium">Medium Priority</option>
                 <option value="high">High Priority</option>
               </select>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="create-form__actions">
               <Button variant="ghost" size="sm" onClick={() => setShowCreateTask(false)}>Cancel</Button>
               <Button size="sm" onClick={handleCreateTask} disabled={!newTaskTitle.trim()}>Create</Button>
             </div>
@@ -185,9 +177,8 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
         </Card>
       )}
 
-      {/* Task groups (List view) */}
       {activeTab === 'list' && (
-        <div className="space-y-4">
+        <div className="detail-task-groups">
           {(['pending', 'in_progress', 'completed'] as TaskStatus[]).map(status => (
             <TaskGroup
               key={status}
@@ -200,36 +191,36 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
       )}
 
       {activeTab === 'board' && (
-        <Card className="text-center py-12">
-          <p className="text-text-secondary">Board view coming in Phase 2</p>
+        <Card className="placeholder-page">
+          <p className="placeholder-page__text">Board view coming in Phase 2</p>
         </Card>
       )}
 
       {activeTab === 'calendar' && (
-        <Card className="text-center py-12">
-          <p className="text-text-secondary">Calendar view coming in Phase 2</p>
+        <Card className="placeholder-page">
+          <p className="placeholder-page__text">Calendar view coming in Phase 2</p>
         </Card>
       )}
 
       {activeTab === 'files' && (
-        <Card className="text-center py-12">
-          <p className="text-text-secondary">File management coming in Phase 2</p>
+        <Card className="placeholder-page">
+          <p className="placeholder-page__text">File management coming in Phase 2</p>
         </Card>
       )}
 
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="detail-overview-grid">
           <Card>
-            <p className="text-sm text-text-secondary">Total Tasks</p>
-            <p className="text-2xl font-bold text-text-primary mt-1">{tasks.length}</p>
+            <p className="detail-stat-label">Total Tasks</p>
+            <p className="detail-stat-value">{tasks.length}</p>
           </Card>
           <Card>
-            <p className="text-sm text-text-secondary">Completed</p>
-            <p className="text-2xl font-bold text-success-500 mt-1">{groupedTasks.completed.length}</p>
+            <p className="detail-stat-label">Completed</p>
+            <p className="detail-stat-value detail-stat-value--success">{groupedTasks.completed.length}</p>
           </Card>
           <Card>
-            <p className="text-sm text-text-secondary">In Progress</p>
-            <p className="text-2xl font-bold text-warning-500 mt-1">{groupedTasks.in_progress.length}</p>
+            <p className="detail-stat-label">In Progress</p>
+            <p className="detail-stat-value detail-stat-value--warning">{groupedTasks.in_progress.length}</p>
           </Card>
         </div>
       )}
@@ -241,16 +232,16 @@ function TaskGroup({ status, tasks, onStatusChange }: { status: TaskStatus; task
   const [expanded, setExpanded] = useState(true)
 
   return (
-    <Card padding="none">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setExpanded(!expanded)} className="text-text-tertiary hover:text-text-secondary transition-colors">
-            <IconChevronDown className={expanded ? '' : 'rotate-180'} />
+    <Card padding="none" className="task-group">
+      <div className="task-group__header">
+        <div className="task-group__header-left">
+          <button onClick={() => setExpanded(!expanded)} className="task-group__toggle">
+            <IconChevronDown className={`task-group__toggle-icon${expanded ? '' : ' task-group__toggle-icon--collapsed'}`} />
           </button>
           <StatusPill status={status} />
-          <span className="text-xs text-text-tertiary ml-1">({tasks.length})</span>
+          <span className="task-group__count">({tasks.length})</span>
         </div>
-        <button className="text-text-tertiary hover:text-text-secondary transition-colors">
+        <button className="task-group__actions">
           <IconDots />
         </button>
       </div>
@@ -258,21 +249,21 @@ function TaskGroup({ status, tasks, onStatusChange }: { status: TaskStatus; task
       {expanded && (
         <>
           {tasks.length > 0 ? (
-            <table className="w-full">
+            <table className="task-table">
               <thead>
-                <tr className="text-xs text-text-tertiary font-medium border-b border-border">
-                  <th className="text-left py-2 px-4 font-medium w-[40%]">Name</th>
-                  <th className="text-left py-2 px-4 font-medium w-[18%]">Assignee</th>
-                  <th className="text-left py-2 px-4 font-medium w-[22%]">Due Date</th>
-                  <th className="text-left py-2 px-4 font-medium w-[16%]">Priority</th>
-                  <th className="w-[4%]"></th>
+                <tr className="task-table__header-row">
+                  <th className="task-table__header-cell task-table__header-cell--name">Name</th>
+                  <th className="task-table__header-cell task-table__header-cell--assignee">Assignee</th>
+                  <th className="task-table__header-cell task-table__header-cell--due">Due Date</th>
+                  <th className="task-table__header-cell task-table__header-cell--priority">Priority</th>
+                  <th className="task-table__header-cell task-table__header-cell--actions"></th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.map(task => (
-                  <tr key={task.id} className="border-t border-border hover:bg-surface-secondary transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
+                  <tr key={task.id} className="task-row">
+                    <td className="task-row__cell">
+                      <div className="task-title">
                         <button
                           onClick={() => {
                             const nextStatus: Record<TaskStatus, TaskStatus> = {
@@ -282,59 +273,58 @@ function TaskGroup({ status, tasks, onStatusChange }: { status: TaskStatus; task
                             }
                             onStatusChange(task.id, nextStatus[task.status])
                           }}
-                          className="text-text-tertiary hover:text-brand-500 transition-colors"
+                          className="task-title__checkbox"
                         >
                           {task.status === 'completed' ? (
-                            <IconCheckCircle className="text-success-500" />
+                            <IconCheckCircle className="task-title__checkbox--completed" />
                           ) : task.status === 'in_progress' ? (
-                            <IconCircleHalf className="text-brand-500" />
+                            <IconCircleHalf className="task-title__checkbox--in_progress" />
                           ) : (
                             <IconCircle />
                           )}
                         </button>
-                        <span className={`text-sm ${task.status === 'completed' ? 'line-through text-text-tertiary' : 'text-text-primary'}`}>
+                        <span className={`task-title__text${task.status === 'completed' ? ' task-title__text--completed' : ''}`}>
                           {task.title}
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="task-row__cell">
                       {task.assignee_name ? (
                         <Avatar name={task.assignee_name} size="sm" />
                       ) : (
-                        <span className="text-text-tertiary text-sm flex items-center gap-1">
-                          <IconUserCircle className="text-sm" /> Assign
+                        <span className="task-assignee--empty">
+                          <IconUserCircle /> Assign
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-sm text-text-secondary">
-                      {task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : (
-                        <span className="text-text-tertiary flex items-center gap-1">
-                          <IconCalendar className="text-sm" /> Add date
-                        </span>
-                      )}
+                    <td className="task-row__cell">
+                      <span className={task.due_date ? 'task-date' : 'task-date--empty'}>
+                        {task.due_date ? (
+                          new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        ) : (
+                          <><IconCalendar /> Add date</>
+                        )}
+                      </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="task-row__cell">
                       {task.priority === 'high' || task.priority === 'medium' ? (
                         <PriorityBadge priority={task.priority} />
                       ) : (
-                        <span className="text-text-tertiary">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"/></svg>
+                        <span className="priority-badge priority-badge--low">
+                          <IconFlag />
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right text-text-tertiary cursor-pointer">⋯</td>
+                    <td className="task-row__cell task-actions" onClick={() => {}}>⋯</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <div className="px-4 py-3 text-sm text-text-tertiary">No tasks</div>
+            <div className="task-group__empty">No tasks</div>
           )}
-          <div
-            className="px-4 py-3 text-accent-500 text-sm flex items-center gap-1.5 border-t border-border cursor-pointer hover:bg-surface-secondary transition-colors font-medium"
-            onClick={() => {}}
-          >
-            <IconPlus className="text-sm" /> Add Task
+          <div onClick={() => {}} className="task-group__add">
+            <IconPlus /> Add Task
           </div>
         </>
       )}
@@ -344,17 +334,13 @@ function TaskGroup({ status, tasks, onStatusChange }: { status: TaskStatus; task
 
 function FilterPill({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-tertiary flex items-center gap-1.5 hover:bg-surface-secondary transition-colors"
-    >
-      {label} <span className="text-text-primary font-semibold">{value}</span>
-      <IconChevronDown className="text-xs" />
+    <button onClick={onClick} className="filter-pill">
+      {label} <span className="filter-pill__value">{value}</span>
+      <IconChevronDown />
     </button>
   )
 }
 
-// Icons
 function IconClock() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> }
 function IconList() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> }
 function IconBoard() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> }
@@ -365,6 +351,7 @@ function IconPlus({ className = '' }: { className?: string }) { return <svg widt
 function IconChevronDown({ className = '' }: { className?: string }) { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"/></svg> }
 function IconDots() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> }
 function IconCircle() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg> }
-function IconCircleHalf() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.5"><circle cx="12" cy="12" r="10"/></svg> }
+function IconCircleHalf({ className = '' }: { className?: string }) { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.5" className={className}><circle cx="12" cy="12" r="10"/></svg> }
 function IconCheckCircle({ className = '' }: { className?: string }) { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg> }
 function IconUserCircle() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> }
+function IconFlag() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"/></svg> }

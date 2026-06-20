@@ -17,7 +17,7 @@ router.get('/me', async (req: AuthRequest, res: Response, next) => {
     if (!user) {
       throw new AppError('User not found', 404)
     }
-    res.json(user)
+    res.json({ ...user, role: user.role.toLowerCase() })
   } catch (err) {
     next(err)
   }
@@ -38,7 +38,7 @@ router.get('/', roleMiddleware('admin'), async (req: AuthRequest, res: Response,
       ]
     }
     if (role) {
-      where.role = role
+      where.role = role.toUpperCase()
     }
 
     const [users, total] = await Promise.all([
@@ -52,7 +52,7 @@ router.get('/', roleMiddleware('admin'), async (req: AuthRequest, res: Response,
       prisma.user.count({ where }),
     ])
 
-    res.json({ users, total, limit, offset })
+    res.json({ users: users.map(u => ({ ...u, role: u.role.toLowerCase() })), total, limit, offset })
   } catch (err) {
     next(err)
   }
@@ -70,7 +70,7 @@ router.put('/:id/role', roleMiddleware('admin'), async (req: AuthRequest, res: R
       data: { role: role.toUpperCase() as 'ADMIN' | 'PROJECT_MANAGER' | 'TEAM_MEMBER' },
       select: { id: true, name: true, email: true, role: true },
     })
-    res.json(user)
+    res.json({ ...user, role: user.role.toLowerCase() })
   } catch (err) {
     next(err)
   }

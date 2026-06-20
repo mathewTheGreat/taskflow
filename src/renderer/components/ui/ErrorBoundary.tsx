@@ -28,15 +28,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-surface-tertiary flex items-center justify-center p-6">
-          <div className="max-w-xl bg-surface rounded-3xl border border-border-strong shadow-xl p-8 text-center">
-            <h1 className="text-2xl font-semibold text-text-primary mb-3">Oops! Something went wrong.</h1>
-            <p className="text-sm text-text-secondary mb-6">We hit an unexpected issue while loading the app. Please try refreshing or come back in a moment.</p>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-xl bg-brand-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-              onClick={this.handleRetry}
-            >
+        <div className="error-boundary">
+          <div className="error-boundary__card">
+            <h1 className="error-boundary__title">Oops! Something went wrong.</h1>
+            <p className="error-boundary__text">We hit an unexpected issue while loading the app. Please try refreshing or come back in a moment.</p>
+            <button type="button" className="error-boundary__btn" onClick={this.handleRetry}>
               Refresh app
             </button>
           </div>

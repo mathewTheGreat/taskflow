@@ -61,6 +61,14 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       prisma.project.count({ where }),
     ])
 
+    const projectIds = projects.map(p => p.id)
+    const completedGroups = await prisma.task.groupBy({
+      by: ['project_id'],
+      where: { project_id: { in: projectIds }, status: 'COMPLETED' },
+      _count: true,
+    })
+    const completedMap = new Map(completedGroups.map(g => [g.project_id, g._count]))
+
     res.json({
       projects: projects.map(p => ({
         id: p.id,
@@ -72,7 +80,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         start_date: p.start_date,
         end_date: p.end_date,
         task_count: p._count.tasks,
-        completed_count: 0,
+        completed_count: completedMap.get(p.id) || 0,
         created_at: p.created_at,
       })),
       total,
@@ -85,7 +93,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
 })
 
 // POST /api/projects
-router.post('/', roleMiddleware('admin', 'project_manager'), async (req: AuthRequest, res: Response, next) => {
+router.post('/', roleMiddleware('admin', 'project_manager', 'team_member'), async (req: AuthRequest, res: Response, next) => {
   try {
     const data = createProjectSchema.parse(req.body)
 

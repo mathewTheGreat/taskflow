@@ -100,7 +100,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
         id: m.user.id,
         name: m.user.name,
         email: m.user.email,
-        role: m.user.role,
+        role: m.user.role.toLowerCase(),
       })),
       created_at: team.created_at,
     })

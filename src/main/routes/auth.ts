@@ -5,7 +5,8 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { AppError } from '../middleware/error'
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, AuthRequest } from '../middleware/auth'
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, AuthRequest, TokenPayload } from '../middleware/auth'
+import { Role } from '@shared/types'
 
 const authDebugDir = path.resolve(process.cwd(), 'logs')
 const authDebugPath = path.join(authDebugDir, 'auth-debug.log')
@@ -63,19 +64,25 @@ router.post('/register', asyncHandler(async (req, res: Response, next) => {
     console.log('[Auth] register password hashed')
     authDebug('register password hashed')
 
+    // First user to register becomes admin (no other way to get admin without DB access)
+    const userCount = await prisma.user.count()
+    const userRole = userCount === 0 ? 'ADMIN' : 'TEAM_MEMBER'
+
     const user = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
         password: passwordHash,
+        role: userRole as 'ADMIN' | 'TEAM_MEMBER',
         company: data.company,
       },
       select: { id: true, name: true, email: true, role: true, company: true, created_at: true },
     })
-    console.log('[Auth] register user created', { userId: user.id })
-    authDebug('register user created', { userId: user.id })
+    console.log('[Auth] register user created', { userId: user.id, role: user.role })
+    authDebug('register user created', { userId: user.id, role: user.role })
 
-    const payload = { userId: user.id, email: user.email, role: user.role as 'admin' | 'project_manager' | 'team_member' }
+    const normalizedRole = user.role.toLowerCase() as Role
+    const payload: TokenPayload = { userId: user.id, email: user.email, role: normalizedRole }
     const accessToken = generateAccessToken(payload)
     const refreshToken = generateRefreshToken(payload)
     console.log('[Auth] register tokens generated')
@@ -88,7 +95,11 @@ router.post('/register', asyncHandler(async (req, res: Response, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
-    res.status(201).json({ user, accessToken, refreshToken })
+    res.status(201).json({
+      user: { ...user, role: user.role.toLowerCase() },
+      accessToken,
+      refreshToken,
+    })
   } catch (err) {
     console.error('[Auth] register failed', err)
     authDebug('register failed', { error: (err as Error).message, stack: (err as Error).stack })
@@ -114,7 +125,7 @@ router.post('/login', asyncHandler(async (req, res: Response, next) => {
       throw new AppError('Invalid email or password', 401)
     }
 
-    const payload = { userId: user.id, email: user.email, role: user.role as 'admin' | 'project_manager' | 'team_member' }
+    const payload: TokenPayload = { userId: user.id, email: user.email, role: user.role.toLowerCase() as Role }
     const accessToken = generateAccessToken(payload)
     const refreshToken = generateRefreshToken(payload)
     console.log('[Auth] login tokens generated')
@@ -127,7 +138,7 @@ router.post('/login', asyncHandler(async (req, res: Response, next) => {
     })
 
     res.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, company: user.company, created_at: user.created_at },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role.toLowerCase(), company: user.company, created_at: user.created_at },
       accessToken,
       refreshToken,
     })

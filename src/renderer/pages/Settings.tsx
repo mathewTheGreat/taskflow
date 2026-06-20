@@ -13,47 +13,40 @@ export function SettingsPage() {
     <div>
       <PageHeader title="Settings" subtitle="Manage your account and preferences" />
 
-      <div className="max-w-2xl space-y-6">
-        {/* Profile */}
+      <div className="settings-wrapper">
         <Card>
-          <h3 className="font-semibold text-text-primary mb-4">Profile</h3>
-          <div className="flex items-center gap-4 mb-4">
+          <h3 className="settings-section__title">Profile</h3>
+          <div className="settings-profile">
             <Avatar name={user?.name} size="lg" />
             <div>
-              <p className="font-medium text-text-primary">{user?.name}</p>
-              <p className="text-sm text-text-secondary">{user?.email}</p>
-              <p className="text-xs text-text-tertiary capitalize mt-0.5">{user?.role?.replace('_', ' ')}</p>
+              <p className="settings-profile__name">{user?.name}</p>
+              <p className="settings-profile__email">{user?.email}</p>
+              <p className="settings-profile__role">{user?.role?.replace('_', ' ')}</p>
+              {user?.role === 'admin' && <p className="settings-profile__desc settings-profile__desc--admin">Full access</p>}
+              {user?.role === 'project_manager' && <p className="settings-profile__desc settings-profile__desc--pm">Can manage projects and teams</p>}
+              {user?.role === 'team_member' && <p className="settings-profile__desc settings-profile__desc--member">Can create and work on tasks</p>}
             </div>
           </div>
         </Card>
 
-        {/* Appearance */}
         <Card>
-          <h3 className="font-semibold text-text-primary mb-4">Appearance</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          <h3 className="settings-section__title">Appearance</h3>
+          <div className="settings-appearance-body">
+            <div className="settings-theme-row">
               <div>
-                <p className="text-sm text-text-primary">Theme</p>
-                <p className="text-xs text-text-tertiary">Choose your preferred color scheme</p>
+                <p className="settings-theme-row__label">Theme</p>
+                <p className="settings-theme-row__desc">Choose your preferred color scheme</p>
               </div>
-              <div className="flex gap-2">
+              <div className="settings-theme-btns">
                 <button
                   onClick={() => setTheme('light')}
-                  className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
-                    theme === 'light'
-                      ? 'bg-brand-500 text-white border-brand-500'
-                      : 'bg-surface text-text-secondary border-border hover:bg-surface-secondary'
-                  }`}
+                  className={`settings-theme-btn${theme === 'light' ? ' settings-theme-btn--active' : ''}`}
                 >
                   Light
                 </button>
                 <button
                   onClick={() => setTheme('dark')}
-                  className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-brand-500 text-white border-brand-500'
-                      : 'bg-surface text-text-secondary border-border hover:bg-surface-secondary'
-                  }`}
+                  className={`settings-theme-btn${theme === 'dark' ? ' settings-theme-btn--active' : ''}`}
                 >
                   Dark
                 </button>
@@ -62,22 +55,20 @@ export function SettingsPage() {
           </div>
         </Card>
 
-        {/* About */}
         <Card>
-          <h3 className="font-semibold text-text-primary mb-4">About</h3>
-          <div className="space-y-2 text-sm text-text-secondary">
+          <h3 className="settings-section__title">About</h3>
+          <div className="settings-about-body settings-about-text">
             <p>TaskFlow V1.0.0</p>
             <p>Phase 1 — MVP</p>
-            <p className="text-text-tertiary">Built with Electron, React, Express, and PostgreSQL</p>
+            <p className="settings-about-muted">Built with Electron, React, Express, and PostgreSQL</p>
           </div>
         </Card>
 
-        {/* Logout */}
         <Card>
-          <div className="flex items-center justify-between">
+          <div className="settings-signout-row">
             <div>
-              <p className="text-sm font-medium text-text-primary">Sign Out</p>
-              <p className="text-xs text-text-tertiary">Sign out of your account</p>
+              <p className="settings-signout__title">Sign Out</p>
+              <p className="settings-signout__desc">Sign out of your account</p>
             </div>
             <Button variant="danger" size="sm" onClick={logout}>Sign Out</Button>
           </div>

@@ -68,11 +68,11 @@ export function TeamsPage() {
 
       {showCreate && (
         <Card className="mb-4">
-          <h3 className="font-semibold text-text-primary mb-3">Create New Team</h3>
+          <h3 className="settings-section__title">Create New Team</h3>
           <div className="flex flex-col gap-3">
             <Input placeholder="Team name" value={newName} onChange={e => setNewName(e.target.value)} />
             <Input placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-            <div className="flex gap-2 justify-end">
+            <div className="create-form__actions">
               <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
               <Button onClick={handleCreate} disabled={!newName.trim()}>Create</Button>
             </div>
@@ -81,29 +81,29 @@ export function TeamsPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-8 text-text-secondary">Loading...</div>
+        <div className="loading-text">Loading...</div>
       ) : teams.length === 0 ? (
-        <Card className="text-center py-12">
-          <p className="text-text-secondary mb-4">No teams yet</p>
+        <Card className="project-empty">
+          <p className="project-empty__text">No teams yet</p>
           <Button onClick={() => setShowCreate(true)}>Create your first team</Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="projects-grid">
           {teams.map(team => (
             <Card
               key={team.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="project-card"
               onClick={() => loadTeamDetail(team.id)}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-semibold text-text-primary">{team.name}</h3>
+                  <h3 className="project-card__name">{team.name}</h3>
                   {team.description && (
-                    <p className="text-sm text-text-secondary mt-1">{team.description}</p>
+                    <p className="project-card__desc">{team.description}</p>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-text-tertiary">
+              <div className="project-card__meta">
                 <IconUsers />
                 <span>{team.member_count} members</span>
               </div>
@@ -114,26 +114,26 @@ export function TeamsPage() {
 
       {/* Team detail modal */}
       {selectedTeam && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setSelectedTeam(null)}>
+        <div className="team-modal-overlay" onClick={() => setSelectedTeam(null)}>
           <Card className="w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
             <CardHeader
               title={selectedTeam.name}
               subtitle={`${selectedTeam.members.length} members`}
               action={
-                <button onClick={() => setSelectedTeam(null)} className="p-1.5 rounded-md hover:bg-surface-secondary text-text-secondary">
+                <button onClick={() => setSelectedTeam(null)} className="team-modal-close">
                   <IconX />
                 </button>
               }
             />
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {selectedTeam.members.map(member => (
-                <div key={member.id} className="flex items-center gap-3 py-2 px-2 rounded-md hover:bg-surface-secondary">
+                <div key={member.id} className="member-item">
                   <Avatar name={member.name} size="md" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-text-primary">{member.name}</p>
-                    <p className="text-xs text-text-tertiary">{member.email}</p>
+                    <p className="member-item__name">{member.name}</p>
+                    <p className="member-item__email">{member.email}</p>
                   </div>
-                  <span className="text-xs text-text-tertiary capitalize">{member.role.replace('_', ' ')}</span>
+                  <span className="member-item__role">{member.role.replace('_', ' ')}</span>
                 </div>
               ))}
             </div>

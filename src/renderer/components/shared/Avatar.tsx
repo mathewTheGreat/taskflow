@@ -5,9 +5,9 @@ interface AvatarProps {
 }
 
 const sizeMap = {
-  sm: 'w-6 h-6 text-xs',
-  md: 'w-8 h-8 text-sm',
-  lg: 'w-10 h-10 text-base',
+  sm: 'avatar--sm',
+  md: 'avatar--md',
+  lg: 'avatar--lg',
 }
 
 const colors = [
@@ -36,15 +36,15 @@ function getInitials(name: string): string {
 export function Avatar({ name, size = 'md', color }: AvatarProps) {
   if (!name) {
     return (
-        <div className={`${sizeMap[size]} rounded-full bg-surface-tertiary flex items-center justify-center`}>
-          <span className="text-text-tertiary text-xs">?</span>
+      <div className={`avatar avatar--empty ${sizeMap[size]}`}>
+        <span className="avatar--empty-icon">?</span>
       </div>
     )
   }
 
   const colorClass = color || getColor(name)
   return (
-    <div className={`${sizeMap[size]} rounded-full flex items-center justify-center font-semibold ${colorClass}`}>
+    <div className={`avatar ${sizeMap[size]} font-semibold ${colorClass}`}>
       {getInitials(name)}
     </div>
   )
@@ -61,12 +61,12 @@ export function AvatarStack({ names, max = 4, size = 'sm' }: AvatarStackProps) {
   const remaining = names.length - max
 
   return (
-    <div className="flex -space-x-2">
+    <div className="avatar-stack">
       {visible.map((name, i) => (
         <Avatar key={i} name={name} size={size} />
       ))}
       {remaining > 0 && (
-        <div className={`${sizeMap[size]} rounded-full bg-surface-tertiary border-2 border-white flex items-center justify-center text-xs font-medium text-text-tertiary`}>
+        <div className={`avatar-stack__overflow ${sizeMap[size]}`}>
           +{remaining}
         </div>
       )}

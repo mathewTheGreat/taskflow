@@ -8,7 +8,7 @@ import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import type { Project } from '@shared/types'
 
-export function ProjectsPage({ onProjectSelect }: { onProjectSelect: (id: string) => void }) {
+export function ProjectsPage({ onProjectSelect, onProjectCreated }: { onProjectSelect: (id: string) => void; onProjectCreated?: () => void }) {
   const { accessToken } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -16,6 +16,7 @@ export function ProjectsPage({ onProjectSelect }: { onProjectSelect: (id: string
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [createError, setCreateError] = useState('')
 
   const loadProjects = async () => {
     if (!accessToken) return
@@ -38,19 +39,22 @@ export function ProjectsPage({ onProjectSelect }: { onProjectSelect: (id: string
 
   const handleCreate = async () => {
     if (!accessToken || !newName.trim()) return
+    setCreateError('')
     try {
       await api.createProject(accessToken, { name: newName, description: newDesc || undefined })
       setNewName('')
       setNewDesc('')
       setShowCreate(false)
       loadProjects()
+      onProjectCreated?.()
     } catch (err) {
-      console.error(err)
+      const message = err instanceof Error ? err.message : 'Failed to create project'
+      setCreateError(message)
     }
   }
 
   return (
-    <div>
+    <div className="projects-page">
       <PageHeader
         title="Projects"
         subtitle={`${projects.length} projects`}
@@ -61,8 +65,7 @@ export function ProjectsPage({ onProjectSelect }: { onProjectSelect: (id: string
         }
       />
 
-      {/* Search */}
-      <div className="mb-4">
+      <div className="project-search">
         <Input
           placeholder="Search projects..."
           value={search}
@@ -71,31 +74,30 @@ export function ProjectsPage({ onProjectSelect }: { onProjectSelect: (id: string
         />
       </div>
 
-      {/* Create form */}
       {showCreate && (
-        <Card className="mb-4">
-          <h3 className="font-semibold text-text-primary mb-3">Create New Project</h3>
+        <Card className="mb-4" padding="md">
+          <h3 className="detail-create-task__title">Create New Project</h3>
           <div className="flex flex-col gap-3">
+            {createError && <p className="create-form__error">{createError}</p>}
             <Input placeholder="Project name" value={newName} onChange={e => setNewName(e.target.value)} />
             <Input placeholder="Description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-            <div className="flex gap-2 justify-end">
-              <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <div className="create-form__actions">
+              <Button variant="ghost" onClick={() => { setShowCreate(false); setCreateError('') }}>Cancel</Button>
               <Button onClick={handleCreate} disabled={!newName.trim()}>Create</Button>
             </div>
           </div>
         </Card>
       )}
 
-      {/* Project list */}
       {loading ? (
-        <div className="text-center py-8 text-text-secondary">Loading...</div>
+        <div className="loading-text">Loading...</div>
       ) : projects.length === 0 ? (
-        <Card className="text-center py-12">
-          <p className="text-text-secondary mb-4">No projects yet</p>
+        <Card className="project-empty">
+          <p className="project-empty__text">No projects yet</p>
           <Button onClick={() => setShowCreate(true)}>Create your first project</Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="projects-grid">
           {projects.map(project => (
             <ProjectCard key={project.id} project={project} onClick={() => onProjectSelect(project.id)} />
           ))}
@@ -109,12 +111,12 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
   const progress = project.task_count ? Math.round((project.completed_count / project.task_count) * 100) : 0
 
   return (
-    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-semibold text-text-primary">{project.name}</h3>
+    <Card className="project-card" padding="md" onClick={onClick}>
+      <div className="project-card__header">
+        <div className="project-card__body">
+          <h3 className="project-card__name">{project.name}</h3>
           {project.description && (
-            <p className="text-sm text-text-secondary mt-1 line-clamp-2">{project.description}</p>
+            <p className="project-card__desc">{project.description}</p>
           )}
         </div>
         <Badge variant={project.status === 'active' ? 'success' : 'default'}>
@@ -122,16 +124,13 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         </Badge>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-text-tertiary mt-4">
+      <div className="project-card__meta">
         <span>{project.task_count} tasks</span>
         <span>{project.completed_count} completed</span>
       </div>
 
-      <div className="mt-2 h-1.5 bg-surface-tertiary rounded-full overflow-hidden">
-        <div
-          className="h-full bg-success-500 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="project-card__progress">
+        <div className="project-card__progress-bar" style={{ width: `${progress}%` }} />
       </div>
     </Card>
   )

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ThemeProvider } from './theme/theme-provider'
 import { LoginPage } from './pages/Login'
@@ -16,11 +16,9 @@ function AppContent() {
   const { isAuthenticated, isLoading, accessToken } = useAuth()
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>()
-  const [activeView, setActiveView] = useState<'spreadsheet' | 'timeline' | 'calendar' | 'board'>('spreadsheet')
-  const [searchValue, setSearchValue] = useState('')
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
 
-  useEffect(() => {
+  const loadSidebarProjects = useCallback(() => {
     if (accessToken) {
       api.getProjects(accessToken).then(result => {
         setProjects(result.projects.map(p => ({ id: p.id, name: p.name })))
@@ -28,10 +26,14 @@ function AppContent() {
     }
   }, [accessToken])
 
+  useEffect(() => {
+    loadSidebarProjects()
+  }, [loadSidebarProjects])
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-secondary flex items-center justify-center">
-        <div className="text-text-tertiary">Loading...</div>
+      <div className="app-loading">
+        <div className="app-loading__text">Loading...</div>
       </div>
     )
   }
@@ -45,7 +47,6 @@ function AppContent() {
   const handleProjectSelect = (id: string) => {
     setActiveProjectId(id)
     setCurrentPage('project-detail')
-    setActiveView('spreadsheet')
   }
 
   const handleNavigate = (page: string) => {
@@ -60,12 +61,12 @@ function AppContent() {
       case 'dashboard':
         return <DashboardPage />
       case 'projects':
-        return <ProjectsPage onProjectSelect={handleProjectSelect} />
+        return <ProjectsPage onProjectSelect={handleProjectSelect} onProjectCreated={loadSidebarProjects} />
       case 'project-detail':
         return activeProjectId ? (
           <ProjectDetailPage projectId={activeProjectId} onBack={() => handleNavigate('projects')} />
         ) : (
-          <ProjectsPage onProjectSelect={handleProjectSelect} />
+          <ProjectsPage onProjectSelect={handleProjectSelect} onProjectCreated={loadSidebarProjects} />
         )
       case 'teams':
         return <TeamsPage />
@@ -73,14 +74,14 @@ function AppContent() {
         return <SettingsPage />
       case 'analytics':
         return (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-text-tertiary">Analytics coming in Phase 3</div>
+          <div className="placeholder-page">
+            <p className="placeholder-page__text">Analytics coming in Phase 3</p>
           </div>
         )
       case 'inbox':
         return (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-text-tertiary">Inbox coming in Phase 2</div>
+          <div className="placeholder-page">
+            <p className="placeholder-page__text">Inbox coming in Phase 2</p>
           </div>
         )
       default:
@@ -89,7 +90,7 @@ function AppContent() {
   }
 
   return (
-    <div className="h-screen flex bg-surface-secondary">
+    <div className="app-layout">
       <Sidebar
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -97,16 +98,12 @@ function AppContent() {
         onProjectSelect={handleProjectSelect}
         activeProjectId={activeProjectId}
       />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="app-main">
         <TopBar
           currentPage={currentPage}
           projectName={activeProject?.name}
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          activeView={activeView}
-          onViewChange={setActiveView}
         />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="app-main__content">
           {renderPage()}
         </main>
       </div>
