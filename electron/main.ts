@@ -2,9 +2,14 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import { spawn, ChildProcess } from 'child_process'
 import { config } from 'dotenv'
+import { fileURLToPath } from 'url'
 
-// Load .env from project root
-const projectRoot = path.resolve(__dirname, '..')
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Load .env from project root (go up from dist-electron/electron/ to project root)
+const projectRoot = path.resolve(__dirname, '../..')
 config({ path: path.join(projectRoot, '.env') })
 
 let mainWindow: BrowserWindow | null = null
