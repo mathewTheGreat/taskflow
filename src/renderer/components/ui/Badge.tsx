@@ -7,11 +7,11 @@ interface BadgeProps {
 }
 
 const variants = {
-  default: 'bg-neutral-100 text-neutral-600',
-  success: 'bg-success-50 text-success-500',
-  warning: 'bg-warning-50 text-warning-500',
-  danger: 'bg-danger-50 text-danger-500',
-  info: 'bg-accent-50 text-accent-500',
+  default: 'bg-surface-tertiary text-text-secondary',
+  success: 'bg-success-50 text-success-700',
+  warning: 'bg-warning-50 text-warning-700',
+  danger: 'bg-danger-50 text-danger-700',
+  info: 'bg-accent-50 text-accent-600',
   brand: 'bg-brand-50 text-brand-600',
 }
 

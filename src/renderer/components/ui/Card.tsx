@@ -9,13 +9,13 @@ interface CardProps {
 const paddingMap = {
   none: '',
   sm: 'p-3',
-  md: 'p-4',
+  md: 'p-5',
   lg: 'p-6',
 }
 
 export function Card({ children, className = '', padding = 'md' }: CardProps) {
   return (
-    <div className={`bg-surface rounded-lg border border-border shadow-sm ${paddingMap[padding]} ${className}`}>
+    <div className={`bg-surface rounded-xl border border-border shadow-md ${paddingMap[padding]} ${className}`}>
       {children}
     </div>
   )
@@ -29,7 +29,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ title, subtitle, action }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-5">
       <div>
         <h3 className="text-base font-semibold text-text-primary">{title}</h3>
         {subtitle && <p className="text-sm text-text-secondary mt-0.5">{subtitle}</p>}

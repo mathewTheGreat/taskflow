@@ -55,6 +55,7 @@ export async function initializeCache(): Promise<void> {
     console.log('[Cache] SQLite cache initialized at', CACHE_DB_PATH)
   } catch (err) {
     console.warn('[Cache] better-sqlite3 not available, running without local cache:', (err as Error).message)
+    console.debug('[Cache] cache initialization error details', err)
     cacheAvailable = false
   }
 }

@@ -8,7 +8,7 @@ interface StatusPillProps {
 const statusConfig: Record<TaskStatus, { label: string; className: string }> = {
   pending: {
     label: 'Pending',
-    className: 'bg-neutral-100 text-neutral-600',
+    className: 'bg-surface-tertiary text-text-secondary',
   },
   in_progress: {
     label: 'In Progress',

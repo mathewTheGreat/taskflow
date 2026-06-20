@@ -127,7 +127,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
         <span>{project.completed_count} completed</span>
       </div>
 
-      <div className="mt-2 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+      <div className="mt-2 h-1.5 bg-surface-tertiary rounded-full overflow-hidden">
         <div
           className="h-full bg-success-500 rounded-full transition-all"
           style={{ width: `${progress}%` }}

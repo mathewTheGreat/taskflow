@@ -22,12 +22,13 @@ function startServer() {
     ? path.join(projectRoot, 'src/main/index.ts')
     : path.join(__dirname, 'main/index.js')
 
+  const tsxCli = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs')
+  const serverCommand = isDev ? process.execPath : 'node'
+  const serverArgs = isDev ? [tsxCli, serverEntry] : [serverEntry]
+
   console.log('[Electron] Starting API server:', serverEntry)
 
-  serverProcess = spawn(
-    isDev ? 'tsx' : 'node',
-    [serverEntry],
-    {
+  serverProcess = spawn(serverCommand, serverArgs, {
       cwd: projectRoot,
       env: {
         ...process.env,

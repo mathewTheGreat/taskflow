@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ThemeProvider } from './theme/theme-provider'
 import { LoginPage } from './pages/Login'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { DashboardPage } from './pages/Dashboard'
 import { ProjectsPage } from './pages/Projects'
 import { ProjectDetailPage } from './pages/ProjectDetail'
@@ -15,10 +16,10 @@ function AppContent() {
   const { isAuthenticated, isLoading, accessToken } = useAuth()
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>()
+  const [activeView, setActiveView] = useState<'spreadsheet' | 'timeline' | 'calendar' | 'board'>('spreadsheet')
   const [searchValue, setSearchValue] = useState('')
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
 
-  // Load projects for sidebar
   useEffect(() => {
     if (accessToken) {
       api.getProjects(accessToken).then(result => {
@@ -29,8 +30,8 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-tertiary flex items-center justify-center">
-        <div className="text-text-secondary">Loading...</div>
+      <div className="min-h-screen bg-surface-secondary flex items-center justify-center">
+        <div className="text-text-tertiary">Loading...</div>
       </div>
     )
   }
@@ -39,9 +40,12 @@ function AppContent() {
     return <LoginPage />
   }
 
+  const activeProject = projects.find(p => p.id === activeProjectId)
+
   const handleProjectSelect = (id: string) => {
     setActiveProjectId(id)
     setCurrentPage('project-detail')
+    setActiveView('spreadsheet')
   }
 
   const handleNavigate = (page: string) => {
@@ -70,13 +74,13 @@ function AppContent() {
       case 'analytics':
         return (
           <div className="flex items-center justify-center h-64">
-            <div className="text-text-secondary">Analytics coming in Phase 3</div>
+            <div className="text-text-tertiary">Analytics coming in Phase 3</div>
           </div>
         )
       case 'inbox':
         return (
           <div className="flex items-center justify-center h-64">
-            <div className="text-text-secondary">Inbox coming in Phase 2</div>
+            <div className="text-text-tertiary">Inbox coming in Phase 2</div>
           </div>
         )
       default:
@@ -85,7 +89,7 @@ function AppContent() {
   }
 
   return (
-    <div className="h-screen flex bg-surface-tertiary">
+    <div className="h-screen flex bg-surface-secondary">
       <Sidebar
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -94,8 +98,15 @@ function AppContent() {
         activeProjectId={activeProjectId}
       />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar searchValue={searchValue} onSearchChange={setSearchValue} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <TopBar
+          currentPage={currentPage}
+          projectName={activeProject?.name}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          activeView={activeView}
+          onViewChange={setActiveView}
+        />
+        <main className="flex-1 overflow-y-auto p-8">
           {renderPage()}
         </main>
       </div>
@@ -107,7 +118,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </AuthProvider>
     </ThemeProvider>
   )

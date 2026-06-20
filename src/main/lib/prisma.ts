@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import { Pool } from '@neondatabase/serverless'
 import { PrismaNeon } from '@prisma/adapter-neon'
 
 const globalForPrisma = globalThis as unknown as {
@@ -12,8 +11,8 @@ function createPrismaClient() {
     throw new Error('DATABASE_URL environment variable is not set')
   }
 
-  const pool = new Pool({ connectionString })
-  const adapter = new PrismaNeon(pool as any)
+  const adapter = new PrismaNeon({ connectionString })
+  console.log('[Prisma] using Neon adapter with connectionString length', connectionString.length)
 
   return new PrismaClient({
     adapter,

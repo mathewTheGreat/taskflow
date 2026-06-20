@@ -21,7 +21,7 @@ export function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-text-secondary">Loading dashboard...</div>
+        <div className="text-text-tertiary">Loading dashboard...</div>
       </div>
     )
   }
@@ -29,7 +29,7 @@ export function DashboardPage() {
   if (!data) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-text-secondary">Failed to load dashboard</div>
+        <div className="text-text-tertiary">Failed to load dashboard</div>
       </div>
     )
   }
@@ -37,9 +37,9 @@ export function DashboardPage() {
   const { my_tasks, project_summary, recent_activity } = data
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-5">
         <StatCard label="Total Projects" value={project_summary.total_projects} icon={<IconFolder />} color="brand" />
         <StatCard label="Total Tasks" value={project_summary.total_tasks} icon={<IconList />} color="info" />
         <StatCard label="Completed" value={project_summary.completed_tasks} icon={<IconCheck />} color="success" />
@@ -50,7 +50,7 @@ export function DashboardPage() {
         {/* My Tasks */}
         <Card className="col-span-1">
           <CardHeader title="My Tasks" subtitle="Your task overview" />
-          <div className="space-y-3">
+          <div className="space-y-1">
             <TaskStatRow label="Due Today" count={my_tasks.due_today} variant="warning" />
             <TaskStatRow label="Overdue" count={my_tasks.overdue} variant="danger" />
             <TaskStatRow label="Completed" count={my_tasks.completed} variant="success" />
@@ -63,7 +63,7 @@ export function DashboardPage() {
           <div className="flex items-center justify-center py-6">
             <div className="relative w-32 h-32">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-neutral-100)" strokeWidth="8" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E0E0E0" strokeWidth="8" />
                 <circle
                   cx="50" cy="50" r="42" fill="none" stroke="var(--color-success-500)" strokeWidth="8"
                   strokeDasharray={`${(project_summary.completed_tasks / Math.max(project_summary.total_tasks, 1)) * 264} 264`}
@@ -77,9 +77,9 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="flex justify-center gap-4 text-xs text-text-secondary">
+          <div className="flex justify-center gap-4 text-xs text-text-tertiary">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-success-500" /> Completed
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Completed
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-neutral-200" /> Remaining
@@ -90,15 +90,15 @@ export function DashboardPage() {
         {/* Recent Activity */}
         <Card className="col-span-1">
           <CardHeader title="Recent Activity" subtitle="Latest updates" />
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-1 max-h-64 overflow-y-auto">
             {recent_activity.length === 0 ? (
-              <p className="text-sm text-text-tertiary text-center py-4">No recent activity</p>
+              <p className="text-sm text-text-tertiary text-center py-6">No recent activity</p>
             ) : (
               recent_activity.map(item => (
-                <div key={item.id} className="flex items-start gap-2.5 text-sm">
+                <div key={item.id} className="flex items-start gap-3 px-1 py-2 rounded-md hover:bg-surface-secondary transition-colors">
                   <div className="w-2 h-2 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-text-primary">{item.message}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm text-text-primary">{item.message}</p>
                     <p className="text-xs text-text-tertiary mt-0.5">
                       {new Date(item.created_at).toLocaleString()}
                     </p>
@@ -115,20 +115,20 @@ export function DashboardPage() {
 
 function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
   const colorMap: Record<string, string> = {
-    brand: 'bg-brand-50 text-brand-500',
-    info: 'bg-accent-50 text-accent-500',
-    success: 'bg-success-50 text-success-500',
-    danger: 'bg-danger-50 text-danger-500',
+    brand: 'bg-brand-50 text-brand-600',
+    info: 'bg-accent-50 text-accent-600',
+    success: 'bg-success-50 text-success-700',
+    danger: 'bg-danger-50 text-danger-600',
   }
 
   return (
     <Card padding="md">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-text-secondary">{label}</p>
+          <p className="text-sm text-text-secondary font-medium">{label}</p>
           <p className="text-2xl font-bold text-text-primary mt-1">{value}</p>
         </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorMap[color]}`}>
+        <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${colorMap[color]}`}>
           {icon}
         </div>
       </div>
@@ -137,15 +137,9 @@ function StatCard({ label, value, icon, color }: { label: string; value: number;
 }
 
 function TaskStatRow({ label, count, variant }: { label: string; count: number; variant: string }) {
-  const variantMap: Record<string, string> = {
-    warning: 'bg-warning-50 text-warning-500',
-    danger: 'bg-danger-50 text-danger-500',
-    success: 'bg-success-50 text-success-500',
-  }
-
   return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-sm text-text-secondary">{label}</span>
+    <div className="flex items-center justify-between py-2.5 px-1">
+      <span className="text-sm font-medium text-text-secondary">{label}</span>
       <Badge variant={variant as 'warning' | 'danger' | 'success'}>{count}</Badge>
     </div>
   )

@@ -33,32 +33,57 @@ export function LoginPage() {
     }
   }
 
+  const toggleMode = () => {
+    setIsRegister(!isRegister)
+    setError('')
+  }
+
   return (
-    <div className="min-h-screen bg-surface-tertiary flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-accent-50 flex items-center justify-center text-accent-500">
+    <div className="auth-page">
+      <div className="auth-page__left">
+        <div className="auth-brand">
+          <div className="auth-brand__badge">
             <IconCheckbox />
           </div>
-          <span className="text-2xl font-bold text-text-primary">TaskFlow</span>
+          <div className="auth-brand__heading">
+            <h1 className="auth-title">TaskFlow</h1>
+            <p className="auth-subtitle">
+              A calm, elegant workspace for tracking teams, projects, and delivery.
+            </p>
+          </div>
+          <ul className="auth-features">
+            <li>
+              <IconCheck />
+              Track tasks across teams and projects
+            </li>
+            <li>
+              <IconCheck />
+              Real-time collaboration and updates
+            </li>
+            <li>
+              <IconCheck />
+              Secure, role-based access control
+            </li>
+          </ul>
         </div>
+      </div>
 
-        <Card padding="lg">
-          <h2 className="text-xl font-bold text-text-primary mb-1">
-            {isRegister ? 'Create Account' : 'Welcome Back'}
-          </h2>
-          <p className="text-sm text-text-secondary mb-6">
-            {isRegister ? 'Start managing your projects today' : 'Sign in to your workspace'}
-          </p>
+      <div className="auth-page__right">
+        <Card padding="none" className="auth-card">
+          <div className="auth-card-header">
+            <h2 className="auth-card-title">
+              {isRegister ? 'Create your account' : 'Welcome back'}
+            </h2>
+            <p className="auth-card-subtitle">
+              {isRegister
+                ? 'Register once, access all your projects securely.'
+                : 'Sign in to continue managing your work.'}
+            </p>
+          </div>
 
-          {error && (
-            <div className="bg-danger-50 text-danger-500 text-sm px-4 py-2.5 rounded-lg mb-4">
-              {error}
-            </div>
-          )}
+          {error && <div className="auth-alert">{error}</div>}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="auth-form">
             {isRegister && (
               <Input
                 label="Full Name"
@@ -67,6 +92,7 @@ export function LoginPage() {
                 onChange={e => setName(e.target.value)}
                 placeholder="John Doe"
                 required
+                className="auth-field"
               />
             )}
 
@@ -77,6 +103,7 @@ export function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
+              className="auth-field"
             />
 
             <Input
@@ -86,6 +113,7 @@ export function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              className="auth-field"
             />
 
             {isRegister && (
@@ -95,21 +123,19 @@ export function LoginPage() {
                 value={company}
                 onChange={e => setCompany(e.target.value)}
                 placeholder="Acme Inc"
+                className="auth-field"
               />
             )}
 
-            <Button type="submit" className="w-full mt-2" disabled={loading}>
+            <Button type="submit" className="w-full mt-1" disabled={loading}>
               {loading ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-text-secondary">
-            {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              onClick={() => { setIsRegister(!isRegister); setError('') }}
-              className="text-brand-500 font-medium hover:text-brand-600 transition-colors"
-            >
-              {isRegister ? 'Sign In' : 'Create one'}
+          <div className="auth-toggle">
+            {isRegister ? 'Already have an account?' : "Don't have an account?"}
+            <button type="button" onClick={toggleMode}>
+              {isRegister ? 'Sign in' : 'Create one'}
             </button>
           </div>
         </Card>
@@ -118,4 +144,19 @@ export function LoginPage() {
   )
 }
 
-function IconCheckbox() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> }
+function IconCheckbox() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 11 12 14 22 4" />
+      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    </svg>
+  )
+}
+
+function IconCheck() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}

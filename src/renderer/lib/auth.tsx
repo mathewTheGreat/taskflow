@@ -66,7 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
+    console.debug('[Auth] login attempt', { email })
     const result = await api.login(email, password)
+    console.debug('[Auth] login success', { email })
     saveTokens(result.accessToken, result.refreshToken)
     setState({
       user: result.user,
@@ -78,7 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(async (data: { name: string; email: string; password: string; company?: string }) => {
+    console.debug('[Auth] register attempt', { email: data.email, name: data.name, company: data.company })
     const result = await api.register(data)
+    console.debug('[Auth] register success', { email: data.email })
     saveTokens(result.accessToken, result.refreshToken)
     setState({
       user: result.user,
@@ -91,14 +95,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     const tokens = loadTokens()
-    if (!tokens.refreshToken) return false
+    if (!tokens.refreshToken) {
+      console.debug('[Auth] refresh skipped, no refresh token')
+      return false
+    }
 
     try {
+      console.debug('[Auth] refresh attempt')
       const result = await api.refresh(tokens.refreshToken)
       saveTokens(result.accessToken, result.refreshToken)
       setState(s => ({ ...s, accessToken: result.accessToken, refreshToken: result.refreshToken }))
+      console.debug('[Auth] refresh success')
       return true
-    } catch {
+    } catch (err) {
+      console.error('[Auth] refresh failed', err)
       saveTokens(null, null)
       setState(s => ({ ...s, user: null, accessToken: null, refreshToken: null, isAuthenticated: false }))
       return false

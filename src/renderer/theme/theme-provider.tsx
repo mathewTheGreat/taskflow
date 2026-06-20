@@ -14,9 +14,8 @@ const THEME_KEY = 'taskflow_theme'
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    const stored = localStorage.getItem(THEME_KEY)
-    if (stored === 'dark' || stored === 'light') return stored
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    // Always start with light mode
+    return 'light'
   })
 
   useEffect(() => {

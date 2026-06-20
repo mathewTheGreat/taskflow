@@ -36,8 +36,8 @@ function getInitials(name: string): string {
 export function Avatar({ name, size = 'md', color }: AvatarProps) {
   if (!name) {
     return (
-      <div className={`${sizeMap[size]} rounded-full bg-neutral-200 flex items-center justify-center`}>
-        <span className="text-neutral-400 text-xs">?</span>
+        <div className={`${sizeMap[size]} rounded-full bg-surface-tertiary flex items-center justify-center`}>
+          <span className="text-text-tertiary text-xs">?</span>
       </div>
     )
   }
@@ -66,7 +66,7 @@ export function AvatarStack({ names, max = 4, size = 'sm' }: AvatarStackProps) {
         <Avatar key={i} name={name} size={size} />
       ))}
       {remaining > 0 && (
-        <div className={`${sizeMap[size]} rounded-full bg-neutral-200 border-2 border-white flex items-center justify-center text-xs font-medium text-neutral-500`}>
+        <div className={`${sizeMap[size]} rounded-full bg-surface-tertiary border-2 border-white flex items-center justify-center text-xs font-medium text-text-tertiary`}>
           +{remaining}
         </div>
       )}

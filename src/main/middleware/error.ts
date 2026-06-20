@@ -35,7 +35,17 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return
   }
 
-  res.status(500).json({
-    error: 'Internal server error',
-  })
+  const userMessage = process.env.NODE_ENV === 'production'
+    ? 'Something went wrong. Please try again in a moment.'
+    : err.message || 'Internal server error'
+
+  const payload: Record<string, unknown> = {
+    error: userMessage,
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    payload.debug = err.stack
+  }
+
+  res.status(500).json(payload)
 }

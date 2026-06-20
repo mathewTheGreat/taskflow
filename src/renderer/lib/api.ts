@@ -18,17 +18,29 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    credentials,
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  console.debug('[API] request', { url: `${API_BASE}${path}`, method, body, token: Boolean(token) })
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      credentials,
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch (fetchError) {
+    console.error('[API] network error', fetchError)
+    const error = new Error('Unable to reach the server. Check your connection and try again.') as Error & { status?: number }
+    error.status = 0
+    throw error
+  }
 
   const data = await res.json().catch(() => null)
+  console.debug('[API] response', { url: `${API_BASE}${path}`, status: res.status, data })
 
   if (!res.ok) {
-    const error = new Error(data?.error || `API error: ${res.status}`) as Error & { status: number; validationErrors?: unknown[] }
+    const message = data?.error || `API error: ${res.status}`
+    const error = new Error(message) as Error & { status: number; validationErrors?: unknown[] }
     error.status = res.status
     error.validationErrors = data?.validation_errors
     throw error
