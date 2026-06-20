@@ -54,8 +54,8 @@
 - [ ] Analytics dashboard
 - [ ] Advanced filters
 - [ ] Activity logs
-- [ ] Cloud backend
-- [ ] Mobile platform
+- [ ] Cloud backend option
+- [ ] Mobile platform with multi-device sync
 
 ## Known Issues
 - Express 5.2.1 has an async handler detection bug — wrapped all handlers with `asyncHandler()` utility
@@ -65,4 +65,5 @@
 
 ## Notes
 - All dates are tracked in commit history
+- Repo: https://github.com/mathewTheGreat/taskflow
 - Update this file when completing major milestones
