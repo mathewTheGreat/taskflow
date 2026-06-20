@@ -3,25 +3,27 @@ import path from 'path'
 import { spawn, ChildProcess } from 'child_process'
 import { config } from 'dotenv'
 
-config({ path: path.join(__dirname, '.env') })
+// Load .env from project root
+const projectRoot = path.resolve(__dirname, '..')
+config({ path: path.join(projectRoot, '.env') })
 
 let mainWindow: BrowserWindow | null = null
 let serverProcess: ChildProcess | null = null
 
-const isDev = process.env.NODE_ENV !== 'production'
+const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged
 
 function startServer() {
   const serverEntry = isDev
-    ? path.join(__dirname, 'src/main/index.ts')
+    ? path.join(projectRoot, 'src/main/index.ts')
     : path.join(__dirname, 'main/index.js')
 
   console.log('[Electron] Starting API server:', serverEntry)
 
   serverProcess = spawn(
     isDev ? 'tsx' : 'node',
-    isDev ? [serverEntry] : [serverEntry],
+    [serverEntry],
     {
-      cwd: isDev ? __dirname : __dirname,
+      cwd: projectRoot,
       env: {
         ...process.env,
         API_PORT: '3001',
@@ -76,7 +78,6 @@ function createWindow() {
 app.whenReady().then(() => {
   startServer()
 
-  // Wait for server to be ready before creating window
   setTimeout(() => {
     createWindow()
   }, 2000)
@@ -103,13 +104,10 @@ app.on('before-quit', () => {
   }
 })
 
-// IPC handlers for theme preference persistence
 ipcMain.handle('get-theme', () => {
-  // Could read from a config file; default to 'light'
   return 'light'
 })
 
 ipcMain.handle('set-theme', (_event, theme: string) => {
-  // Could write to a config file
   return theme
 })

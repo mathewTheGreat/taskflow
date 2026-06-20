@@ -2,17 +2,17 @@
   "name": "taskflow",
   "version": "1.0.0",
   "description": "TaskFlow V1 — Project Management Desktop App",
-  "main": "dist-electron/main.js",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "electron:dev": "concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && tsx electron/main.ts\"",
-    "electron:build": "npm run build && echo 'Install electron-builder to build distributables'",
+    "electron:dev": "concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && electron .\"",
     "server": "tsx watch src/main/index.ts",
     "server:build": "tsc -p tsconfig.node.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate",
     "setup": "bash scripts/setup.sh"
   },
   "dependencies": {
