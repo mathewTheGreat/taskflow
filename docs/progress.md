@@ -26,6 +26,10 @@
 - [x] Teams page (list, create, member management)
 - [x] Settings page (profile, appearance, sign out)
 - [x] Login page (split layout, branding panel, form card)
+- [x] Prisma v7 adapter pattern for Neon PostgreSQL
+- [x] ESM-compatible electron main (import.meta.url)
+- [x] Git repo created and pushed to GitHub
+- [x] README with setup instructions
 
 ## Pending (Phase 2)
 - [ ] Inbox page
@@ -44,14 +48,16 @@
 - [ ] Analytics dashboard
 - [ ] Advanced filters
 - [ ] Activity logs
-- [ ] Cloud backend
-- [ ] Mobile platform
+- [ ] Cloud backend option
+- [ ] Mobile platform with multi-device sync
 
 ## Known Issues
 - Express 5.2.1 has an async handler detection bug — wrapped all handlers with `asyncHandler()` utility
 - Express 5.2.1 `express.json()` body parser hangs — replaced with manual stream-based body parsing
 - Zombie server processes can accumulate on port 3001 from Electron child-process spawns — run `netstat -ano | findstr :3001` and kill stale PIDs if auth/API are unreachable
+- better-sqlite3 on Windows — requires Visual Studio Build Tools or Node.js 22 LTS for prebuilt binaries
 
 ## Notes
 - All dates are tracked in commit history
+- Repo: https://github.com/mathewTheGreat/taskflow
 - Update this file when completing major milestones
