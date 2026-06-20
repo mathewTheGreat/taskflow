@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "electron:dev": "concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:electron": "tsc -p tsconfig.node.json",
+    "electron:dev": "npm run build:electron && concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && electron .\"",
     "server": "tsx watch src/main/index.ts",
     "server:build": "tsc -p tsconfig.node.json",
     "prisma:generate": "prisma generate",
