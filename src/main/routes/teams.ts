@@ -77,7 +77,7 @@ router.post('/', roleMiddleware('admin', 'project_manager'), async (req: AuthReq
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const team = await prisma.team.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         members: {
           include: {
@@ -96,7 +96,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       name: team.name,
       description: team.description,
       created_by: team.created_by,
-      members: team.members.map(m => ({
+      members: team.members.map((m: { user: { id: string; name: string; email: string; role: string } }) => ({
         id: m.user.id,
         name: m.user.name,
         email: m.user.email,
@@ -114,7 +114,7 @@ router.put('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthR
   try {
     const data = createTeamSchema.parse(req.body)
     const team = await prisma.team.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { name: data.name, description: data.description },
     })
     res.json(team)
@@ -126,7 +126,7 @@ router.put('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthR
 // DELETE /api/teams/:id
 router.delete('/:id', roleMiddleware('admin'), async (req: AuthRequest, res: Response, next) => {
   try {
-    await prisma.team.delete({ where: { id: req.params.id } })
+    await prisma.team.delete({ where: { id: req.params.id as string } })
     res.status(204).send()
   } catch (err) {
     next(err)
@@ -140,7 +140,7 @@ router.post('/:id/members', roleMiddleware('admin', 'project_manager'), async (r
 
     const member = await prisma.teamMember.create({
       data: {
-        team_id: req.params.id,
+        team_id: req.params.id as string,
         user_id,
       },
     })
@@ -157,8 +157,8 @@ router.delete('/:id/members/:userId', roleMiddleware('admin', 'project_manager')
     await prisma.teamMember.delete({
       where: {
         team_id_user_id: {
-          team_id: req.params.id,
-          user_id: req.params.userId,
+          team_id: req.params.id as string,
+          user_id: req.params.userId as string,
         },
       },
     })

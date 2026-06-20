@@ -13,8 +13,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
-    const [dueToday, overdue, completed, projectStats, recentActivity] = await Promise.all([
-      // Due today
+    const [dueToday, overdue, completed, totalProjects, totalTasks, recentActivity] = await Promise.all([
       prisma.task.count({
         where: {
           assignee_id: userId,
@@ -22,7 +21,6 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
           status: { not: 'COMPLETED' },
         },
       }),
-      // Overdue
       prisma.task.count({
         where: {
           assignee_id: userId,
@@ -30,33 +28,20 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
           status: { not: 'COMPLETED' },
         },
       }),
-      // Completed (all time for simplicity, could be this week)
       prisma.task.count({
         where: {
           assignee_id: userId,
           status: 'COMPLETED',
         },
       }),
-      // Project stats
-      prisma.project.aggregate({
-        _count: { id: true },
-      }),
-      prisma.task.aggregate({
-        _count: { id: true },
-      }),
-      prisma.task.count({
-        where: { status: 'COMPLETED' },
-      }),
-      // Recent activity
+      prisma.project.count(),
+      prisma.task.count(),
       prisma.activityLog.findMany({
         take: 10,
         orderBy: { created_at: 'desc' },
         include: { user: { select: { name: true } } },
       }),
     ])
-
-    const totalProjects = projectStats._count.id
-    const totalTasks = prisma.task.count() // This is a separate query, fixing below
 
     res.json({
       my_tasks: {
@@ -66,11 +51,11 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       },
       project_summary: {
         total_projects: totalProjects,
-        total_tasks: await totalTasks,
+        total_tasks: totalTasks,
         completed_tasks: completed,
         overdue_tasks: overdue,
       },
-      recent_activity: recentActivity.map(a => ({
+      recent_activity: recentActivity.map((a: { id: string; action: string; user: { name: string }; metadata: unknown; created_at: Date }) => ({
         id: a.id,
         type: a.action,
         message: formatActivityMessage(a.action, a.user.name, a.metadata),

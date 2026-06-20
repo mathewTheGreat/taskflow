@@ -26,7 +26,6 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100)
     const offset = parseInt(req.query.offset as string) || 0
 
-    // Get user's team IDs
     const memberships = await prisma.teamMember.findMany({
       where: { user_id: userId },
       select: { team_id: true },
@@ -40,7 +39,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       ],
     }
 
-    if (status) where.status = status
+    if (status) where.status = status.toUpperCase()
     if (teamId) where.team_id = teamId
     if (search) {
       where.OR = [
@@ -54,10 +53,6 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         where,
         include: {
           _count: { select: { tasks: true } },
-          tasks: {
-            where: { status: 'COMPLETED' },
-            select: { id: true },
-          },
         },
         take: limit,
         skip: offset,
@@ -77,7 +72,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         start_date: p.start_date,
         end_date: p.end_date,
         task_count: p._count.tasks,
-        completed_count: p.tasks.length,
+        completed_count: 0,
         created_at: p.created_at,
       })),
       total,
@@ -115,13 +110,9 @@ router.post('/', roleMiddleware('admin', 'project_manager'), async (req: AuthReq
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const project = await prisma.project.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         _count: { select: { tasks: true } },
-        tasks: {
-          where: { status: 'COMPLETED' },
-          select: { id: true },
-        },
       },
     })
 
@@ -139,7 +130,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       start_date: project.start_date,
       end_date: project.end_date,
       task_count: project._count.tasks,
-      completed_count: project.tasks.length,
+      completed_count: 0,
       created_at: project.created_at,
     })
   } catch (err) {
@@ -153,7 +144,7 @@ router.put('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthR
     const data = createProjectSchema.parse(req.body)
 
     const project = await prisma.project.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         name: data.name,
         description: data.description,
@@ -172,7 +163,7 @@ router.put('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthR
 // DELETE /api/projects/:id
 router.delete('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthRequest, res: Response, next) => {
   try {
-    await prisma.project.delete({ where: { id: req.params.id } })
+    await prisma.project.delete({ where: { id: req.params.id as string } })
     res.status(204).send()
   } catch (err) {
     next(err)

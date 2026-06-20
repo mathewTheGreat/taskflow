@@ -109,7 +109,6 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       },
     })
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         user_id: req.user!.userId,
@@ -142,7 +141,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const task = await prisma.task.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         assignee: { select: { id: true, name: true } },
         comments: {
@@ -170,7 +169,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       estimated_hours: task.estimated_hours,
       created_by: task.created_by,
       created_at: task.created_at,
-      comments: task.comments.map(c => ({
+      comments: task.comments.map((c: { id: string; task_id: string; user_id: string; message: string; created_at: Date; user: { name: string } }) => ({
         id: c.id,
         task_id: c.task_id,
         user_id: c.user_id,
@@ -190,7 +189,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     const data = createTaskSchema.parse(req.body)
 
     const task = await prisma.task.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         project_id: data.project_id,
         title: data.title,
@@ -228,7 +227,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
 // DELETE /api/tasks/:id
 router.delete('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthRequest, res: Response, next) => {
   try {
-    await prisma.task.delete({ where: { id: req.params.id } })
+    await prisma.task.delete({ where: { id: req.params.id as string } })
     res.status(204).send()
   } catch (err) {
     next(err)
@@ -242,7 +241,7 @@ router.post('/:id/comments', async (req: AuthRequest, res: Response, next) => {
 
     const comment = await prisma.comment.create({
       data: {
-        task_id: req.params.id,
+        task_id: req.params.id as string,
         user_id: req.user!.userId,
         message,
       },
@@ -268,13 +267,13 @@ router.post('/:id/comments', async (req: AuthRequest, res: Response, next) => {
 router.get('/:id/comments', async (req: AuthRequest, res: Response, next) => {
   try {
     const comments = await prisma.comment.findMany({
-      where: { task_id: req.params.id },
+      where: { task_id: req.params.id as string },
       include: { user: { select: { name: true } } },
       orderBy: { created_at: 'asc' },
     })
 
     res.json({
-      comments: comments.map(c => ({
+      comments: comments.map((c: { id: string; user_id: string; user: { name: string }; message: string; created_at: Date }) => ({
         id: c.id,
         user_id: c.user_id,
         user_name: c.user.name,

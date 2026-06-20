@@ -66,8 +66,8 @@ router.put('/:id/role', roleMiddleware('admin'), async (req: AuthRequest, res: R
   try {
     const { role } = updateRoleSchema.parse(req.body)
     const user = await prisma.user.update({
-      where: { id: req.params.id },
-      data: { role },
+      where: { id: req.params.id as string },
+      data: { role: role.toUpperCase() as 'ADMIN' | 'PROJECT_MANAGER' | 'TEAM_MEMBER' },
       select: { id: true, name: true, email: true, role: true },
     })
     res.json(user)

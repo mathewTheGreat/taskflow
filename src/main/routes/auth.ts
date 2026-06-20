@@ -43,7 +43,7 @@ router.post('/register', async (req, res: Response, next) => {
       select: { id: true, name: true, email: true, role: true, company: true, created_at: true },
     })
 
-    const payload = { userId: user.id, email: user.email, role: user.role }
+    const payload = { userId: user.id, email: user.email, role: user.role as 'admin' | 'project_manager' | 'team_member' }
     const accessToken = generateAccessToken(payload)
     const refreshToken = generateRefreshToken(payload)
 
@@ -74,7 +74,7 @@ router.post('/login', async (req, res: Response, next) => {
       throw new AppError('Invalid email or password', 401)
     }
 
-    const payload = { userId: user.id, email: user.email, role: user.role }
+    const payload = { userId: user.id, email: user.email, role: user.role as 'admin' | 'project_manager' | 'team_member' }
     const accessToken = generateAccessToken(payload)
     const refreshToken = generateRefreshToken(payload)
 
