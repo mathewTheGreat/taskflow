@@ -55,6 +55,7 @@ export interface Task {
   assignee_id?: string
   assignee_name?: string
   assignee_initials?: string
+  parent_id?: string
   status: TaskStatus
   priority: TaskPriority
   start_date?: string

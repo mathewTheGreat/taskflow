@@ -137,13 +137,13 @@ export const api = {
     return apiFetch<{ tasks: Task[]; total: number }>(`/tasks?${qs}`, { token })
   },
 
-  createTask: (token: string, data: { project_id: string; title: string; description?: string; assignee_id?: string; status?: string; priority?: string; due_date?: string; estimated_hours?: number }) =>
+  createTask: (token: string, data: { project_id: string; title: string; description?: string; assignee_id?: string; parent_id?: string; status?: string; priority?: string; due_date?: string; estimated_hours?: number }) =>
     apiFetch<Task>('/tasks', { method: 'POST', body: data, token }),
 
   getTask: (token: string, id: string) =>
     apiFetch<Task & { comments: Comment[] }>(`/tasks/${id}`, { token }),
 
-  updateTask: (token: string, id: string, data: { title?: string; description?: string; assignee_id?: string; status?: string; priority?: string; due_date?: string }) =>
+  updateTask: (token: string, id: string, data: { title?: string; description?: string; assignee_id?: string; parent_id?: string; status?: string; priority?: string; due_date?: string }) =>
     apiFetch<Task>(`/tasks/${id}`, { method: 'PUT', body: data, token }),
 
   deleteTask: (token: string, id: string) =>
