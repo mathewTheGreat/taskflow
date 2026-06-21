@@ -23,7 +23,9 @@ function startServer() {
     : path.join(__dirname, 'main/index.js')
 
   const tsxCli = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs')
-  const serverCommand = isDev ? process.execPath : 'node'
+
+  // In production, process.execPath (Electron's Node) runs as a regular Node via ELECTRON_RUN_AS_NODE
+  const serverCommand = process.execPath
   const serverArgs = isDev ? [tsxCli, serverEntry] : [serverEntry]
 
   console.log('[Electron] Starting API server:', serverEntry)
@@ -34,6 +36,7 @@ function startServer() {
         ...process.env,
         API_PORT: '3001',
         NODE_ENV: isDev ? 'development' : 'production',
+        ELECTRON_RUN_AS_NODE: '1',
       },
       stdio: 'pipe',
     }

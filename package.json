@@ -2,6 +2,7 @@
   "name": "taskflow",
   "version": "1.0.0",
   "description": "TaskFlow V1 — Project Management Desktop App",
+  "author": "TaskFlow Team",
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -14,7 +15,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "setup": "bash scripts/setup.sh"
+    "setup": "bash scripts/setup.sh",
+    "dist": "npm run build && npm run build:electron && npx electron-rebuild -f -w better-sqlite3 && electron-builder"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -50,6 +52,7 @@
     "autoprefixer": "10.5.0",
     "concurrently": "9.2.3",
     "electron": "^34.5.8",
+    "electron-builder": "^26.15.3",
     "postcss": "8.5.15",
     "prisma": "7.8.0",
     "tailwindcss": "4.3.1",
@@ -57,5 +60,30 @@
     "typescript": "5.9.3",
     "vite": "6.4.3",
     "wait-on": "8.0.5"
+  },
+  "build": {
+    "appId": "com.taskflow.app",
+    "productName": "TaskFlow",
+    "files": [
+      "dist-electron/**/*",
+      "dist-react/**/*",
+      ".env"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/@prisma/client/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
