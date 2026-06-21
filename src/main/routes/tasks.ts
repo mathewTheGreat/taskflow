@@ -19,6 +19,21 @@ const createTaskSchema = z.object({
   start_date: z.string().optional(),
   due_date: z.string().optional(),
   estimated_hours: z.number().int().positive().optional(),
+  completion_percentage: z.number().int().min(0).max(100).optional(),
+})
+
+const updateTaskSchema = z.object({
+  project_id: z.string().uuid().optional(),
+  title: z.string().min(1).max(300).optional(),
+  description: z.string().max(5000).optional(),
+  assignee_id: z.string().uuid().optional().nullable(),
+  parent_id: z.string().uuid().optional().nullable(),
+  status: z.enum(['pending', 'in_progress', 'completed']).optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
+  start_date: z.string().optional().nullable(),
+  due_date: z.string().optional().nullable(),
+  estimated_hours: z.number().int().positive().optional().nullable(),
+  completion_percentage: z.number().int().min(0).max(100).optional(),
 })
 
 const createCommentSchema = z.object({
@@ -76,6 +91,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         start_date: t.start_date,
         due_date: t.due_date,
         estimated_hours: t.estimated_hours,
+        completion_percentage: t.completion_percentage,
         created_by: t.created_by,
         created_at: t.created_at,
       })),
@@ -105,6 +121,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
         start_date: data.start_date ? new Date(data.start_date) : undefined,
         due_date: data.due_date ? new Date(data.due_date) : undefined,
         estimated_hours: data.estimated_hours,
+        completion_percentage: data.completion_percentage,
         created_by: req.user!.userId,
       },
       include: {
@@ -133,6 +150,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       status: task.status.toLowerCase(),
       priority: task.priority.toLowerCase(),
       due_date: task.due_date,
+      completion_percentage: task.completion_percentage,
       created_by: task.created_by,
       created_at: task.created_at,
     })
@@ -172,6 +190,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       start_date: task.start_date,
       due_date: task.due_date,
       estimated_hours: task.estimated_hours,
+      completion_percentage: task.completion_percentage,
       created_by: task.created_by,
       created_at: task.created_at,
       comments: task.comments.map((c: { id: string; task_id: string; user_id: string; message: string; created_at: Date; user: { name: string } }) => ({
@@ -191,21 +210,22 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 // PUT /api/tasks/:id
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
-    const data = createTaskSchema.parse(req.body)
+    const data = updateTaskSchema.parse(req.body)
 
     const task = await prisma.task.update({
       where: { id: req.params.id as string },
       data: {
-        project_id: data.project_id,
-        title: data.title,
-        description: data.description,
-        assignee_id: data.assignee_id,
-        parent_id: data.parent_id,
-        status: data.status ? (data.status.toUpperCase() as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED') : undefined,
-        priority: data.priority ? (data.priority.toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH') : undefined,
-        start_date: data.start_date ? new Date(data.start_date) : undefined,
-        due_date: data.due_date ? new Date(data.due_date) : undefined,
-        estimated_hours: data.estimated_hours,
+        ...(data.project_id !== undefined && { project_id: data.project_id }),
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.assignee_id !== undefined && { assignee_id: data.assignee_id }),
+        ...(data.parent_id !== undefined && { parent_id: data.parent_id }),
+        ...(data.status !== undefined && { status: data.status.toUpperCase() as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' }),
+        ...(data.priority !== undefined && { priority: data.priority.toUpperCase() as 'LOW' | 'MEDIUM' | 'HIGH' }),
+        ...(data.start_date !== undefined && { start_date: data.start_date ? new Date(data.start_date) : null }),
+        ...(data.due_date !== undefined && { due_date: data.due_date ? new Date(data.due_date) : null }),
+        ...(data.estimated_hours !== undefined && { estimated_hours: data.estimated_hours }),
+        ...(data.completion_percentage !== undefined && { completion_percentage: data.completion_percentage }),
       },
       include: {
         assignee: { select: { id: true, name: true } },
@@ -223,6 +243,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       status: task.status.toLowerCase(),
       priority: task.priority.toLowerCase(),
       due_date: task.due_date,
+      completion_percentage: task.completion_percentage,
       created_by: task.created_by,
       created_at: task.created_at,
     })

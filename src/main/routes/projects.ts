@@ -121,6 +121,13 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       where: { id: req.params.id as string },
       include: {
         _count: { select: { tasks: true } },
+        team: {
+          include: {
+            members: {
+              include: { user: { select: { id: true, name: true, email: true } } },
+            },
+          },
+        },
       },
     })
 
@@ -140,6 +147,11 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
       task_count: project._count.tasks,
       completed_count: 0,
       created_at: project.created_at,
+      members: project.team?.members.map(m => ({
+        user_id: m.user.id,
+        user_name: m.user.name,
+        email: m.user.email,
+      })) || [],
     })
   } catch (err) {
     next(err)

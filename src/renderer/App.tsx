@@ -10,6 +10,7 @@ import { TeamsPage } from './pages/Teams'
 import { SettingsPage } from './pages/Settings'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
+import { ToastProvider } from './components/shared/Toast'
 import { api } from './lib/api'
 
 function AppContent() {
@@ -116,7 +117,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <ErrorBoundary>
-          <AppContent />
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
         </ErrorBoundary>
       </AuthProvider>
     </ThemeProvider>

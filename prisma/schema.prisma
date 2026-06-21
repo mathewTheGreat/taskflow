@@ -83,6 +83,7 @@ model Task {
   start_date      DateTime?    @map("start_date") @db.Date
   due_date        DateTime?    @map("due_date") @db.Date
   estimated_hours Int?         @map("estimated_hours")
+  completion_percentage Int   @default(0) @map("completion_percentage")
   created_by      String       @map("created_by") @db.Uuid
   created_at      DateTime     @default(now()) @map("created_at")
 

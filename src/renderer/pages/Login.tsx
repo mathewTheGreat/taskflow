@@ -13,6 +13,7 @@ export function LoginPage() {
   const [company, setCompany] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,9 +22,9 @@ export function LoginPage() {
 
     try {
       if (isRegister) {
-        await register({ name, email, password, company: company || undefined })
+        await register({ name, email, password, company: company || undefined }, rememberMe)
       } else {
-        await login(email, password)
+        await login(email, password, rememberMe)
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred'
@@ -125,6 +126,18 @@ export function LoginPage() {
                 placeholder="Acme Inc"
                 className="auth-field"
               />
+            )}
+
+            {!isRegister && (
+              <label className="auth-remember">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  className="auth-remember__checkbox"
+                />
+                <span className="auth-remember__label">Remember me</span>
+              </label>
             )}
 
             <Button type="submit" className="w-full mt-1" disabled={loading}>

@@ -45,6 +45,7 @@ export interface Project {
   task_count?: number
   completed_count?: number
   created_at: string
+  members?: { user_id: string; user_name: string; email?: string }[]
 }
 
 export interface Task {
@@ -61,6 +62,7 @@ export interface Task {
   start_date?: string
   due_date?: string
   estimated_hours?: number
+  completion_percentage: number
   created_by: string
   created_at: string
 }

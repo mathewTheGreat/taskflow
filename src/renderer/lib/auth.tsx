@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { api } from './api'
 import type { User, Role } from '@shared/types'
 
@@ -11,8 +11,8 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>
-  register: (data: { name: string; email: string; password: string; company?: string }) => Promise<void>
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
+  register: (data: { name: string; email: string; password: string; company?: string }, rememberMe?: boolean) => Promise<void>
   logout: () => Promise<void>
   refreshAccessToken: () => Promise<boolean>
 }
@@ -20,20 +20,43 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | null>(null)
 
 const TOKEN_KEY = 'taskflow_tokens'
+const REMEMBER_KEY = 'taskflow_remember'
+
+function getStorage(rememberMe: boolean): Storage {
+  return rememberMe ? localStorage : sessionStorage
+}
+
+function loadRememberMe(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) === 'true'
+  } catch { return false }
+}
+
+function saveRememberMe(rememberMe: boolean) {
+  if (rememberMe) {
+    localStorage.setItem(REMEMBER_KEY, 'true')
+  } else {
+    localStorage.removeItem(REMEMBER_KEY)
+  }
+}
 
 function loadTokens(): { accessToken: string | null; refreshToken: string | null } {
+  const rememberMe = loadRememberMe()
+  const storage = getStorage(rememberMe)
   try {
-    const stored = localStorage.getItem(TOKEN_KEY)
+    const stored = storage.getItem(TOKEN_KEY)
     if (stored) return JSON.parse(stored)
   } catch { /* ignore */ }
   return { accessToken: null, refreshToken: null }
 }
 
 function saveTokens(accessToken: string | null, refreshToken: string | null) {
+  const rememberMe = loadRememberMe()
+  const storage = getStorage(rememberMe)
   if (accessToken && refreshToken) {
-    localStorage.setItem(TOKEN_KEY, JSON.stringify({ accessToken, refreshToken }))
+    storage.setItem(TOKEN_KEY, JSON.stringify({ accessToken, refreshToken }))
   } else {
-    localStorage.removeItem(TOKEN_KEY)
+    storage.removeItem(TOKEN_KEY)
   }
 }
 
@@ -49,14 +72,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  // Verify token on mount
+  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
+    const tokens = loadTokens()
+    if (!tokens.refreshToken) return false
+    try {
+      const result = await api.refresh(tokens.refreshToken)
+      saveTokens(result.accessToken, result.refreshToken)
+      setState(s => ({ ...s, accessToken: result.accessToken, refreshToken: result.refreshToken }))
+      return true
+    } catch {
+      saveTokens(null, null)
+      setState(s => ({ ...s, user: null, accessToken: null, refreshToken: null, isAuthenticated: false }))
+      return false
+    }
+  }, [])
+
+  const initialized = useRef(false)
+
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+
     if (state.accessToken) {
       api.getMe(state.accessToken)
-        .then(user => {
-          setState(s => ({ ...s, user, isLoading: false }))
-        })
-        .catch(() => {
+        .then(user => setState(s => ({ ...s, user, isLoading: false })))
+        .catch(async () => {
+          const refreshed = await refreshAccessToken()
+          if (refreshed) {
+            const tokens = loadTokens()
+            if (tokens.accessToken) {
+              try {
+                const user = await api.getMe(tokens.accessToken)
+                setState(s => ({ ...s, user, isLoading: false }))
+                return
+              } catch {}
+            }
+          }
           saveTokens(null, null)
           setState(s => ({ ...s, user: null, accessToken: null, refreshToken: null, isAuthenticated: false, isLoading: false }))
         })
@@ -65,10 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    console.debug('[Auth] login attempt', { email })
+  const login = useCallback(async (email: string, password: string, rememberMe?: boolean) => {
+    const persist = rememberMe ?? true
+    saveRememberMe(persist)
     const result = await api.login(email, password)
-    console.debug('[Auth] login success', { email })
     saveTokens(result.accessToken, result.refreshToken)
     setState({
       user: result.user,
@@ -79,10 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const register = useCallback(async (data: { name: string; email: string; password: string; company?: string }) => {
-    console.debug('[Auth] register attempt', { email: data.email, name: data.name, company: data.company })
+  const register = useCallback(async (data: { name: string; email: string; password: string; company?: string }, rememberMe?: boolean) => {
+    const persist = rememberMe ?? true
+    saveRememberMe(persist)
     const result = await api.register(data)
-    console.debug('[Auth] register success', { email: data.email })
     saveTokens(result.accessToken, result.refreshToken)
     setState({
       user: result.user,
@@ -91,34 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: true,
       isLoading: false,
     })
-  }, [])
-
-  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
-    const tokens = loadTokens()
-    if (!tokens.refreshToken) {
-      console.debug('[Auth] refresh skipped, no refresh token')
-      return false
-    }
-
-    try {
-      console.debug('[Auth] refresh attempt')
-      const result = await api.refresh(tokens.refreshToken)
-      saveTokens(result.accessToken, result.refreshToken)
-      setState(s => ({ ...s, accessToken: result.accessToken, refreshToken: result.refreshToken }))
-      console.debug('[Auth] refresh success')
-      return true
-    } catch (err) {
-      console.error('[Auth] refresh failed', err)
-      saveTokens(null, null)
-      setState(s => ({ ...s, user: null, accessToken: null, refreshToken: null, isAuthenticated: false }))
-      return false
-    }
   }, [])
 
   const logout = useCallback(async () => {
-    try {
-      await api.logout(state.accessToken)
-    } catch { /* ignore */ }
+    try { await api.logout(state.accessToken) } catch { /* ignore */ }
     saveTokens(null, null)
     setState({
       user: null,

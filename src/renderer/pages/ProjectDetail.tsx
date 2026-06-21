@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useToast } from '../components/shared/Toast'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { StatusPill } from '../components/shared/StatusPill'
-import { PriorityBadge } from '../components/shared/PriorityBadge'
 import { Avatar } from '../components/shared/Avatar'
-import type { Project, Task, TaskStatus, TaskPriority } from '@shared/types'
+import { AssigneeSelect } from '../components/shared/AssigneeSelect'
+import { InlineEdit } from '../components/shared/InlineEdit'
+import { DateInput } from '../components/shared/DateInput'
+import { ConfirmDialog } from '../components/shared/ConfirmDialog'
+import { PrioritySelect } from '../components/shared/PrioritySelect'
+import { ProgressSlider } from '../components/shared/ProgressSlider'
+import { NotesSection } from '../components/shared/NotesSection'
+import { CalendarView } from '../components/shared/CalendarView'
+import type { Project, Task, TaskStatus, TaskPriority, Comment } from '@shared/types'
 
 interface ProjectDetailPageProps {
   projectId: string
@@ -16,13 +24,14 @@ interface ProjectDetailPageProps {
 
 export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps) {
   const { accessToken } = useAuth()
+  const { addToast } = useToast()
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('list')
   const [showCreateTask, setShowCreateTask] = useState(false)
+  const [createStatus, setCreateStatus] = useState<TaskStatus>('pending')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDesc, setNewTaskDesc] = useState('')
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium')
@@ -32,6 +41,9 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
   const [filterPriority, setFilterPriority] = useState<string>('')
   const [filterAssignee, setFilterAssignee] = useState<string>('')
   const [filterDueDate, setFilterDueDate] = useState<string>('')
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [taskComments, setTaskComments] = useState<Comment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
 
   const loadData = async () => {
     if (!accessToken) return
@@ -43,7 +55,7 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
       setProject(projectData)
       setTasks(tasksData.tasks)
     } catch (err) {
-      console.error(err)
+      addToast('error', 'Failed to load project')
     } finally {
       setLoading(false)
     }
@@ -51,12 +63,22 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
 
   useEffect(() => { loadData() }, [accessToken, projectId])
 
+  useEffect(() => {
+    if (!selectedTask || !accessToken) { setTaskComments([]); return }
+    setCommentsLoading(true)
+    api.getComments(accessToken, selectedTask.id)
+      .then(res => setTaskComments(res.comments))
+      .catch(() => setTaskComments([]))
+      .finally(() => setCommentsLoading(false))
+  }, [selectedTask?.id, accessToken])
+
   const resetCreateForm = () => {
     setNewTaskTitle('')
     setNewTaskDesc('')
     setNewTaskPriority('medium')
     setNewTaskDueDate('')
     setNewTaskParentId('')
+    setCreateStatus('pending')
     setShowCreateTask(false)
   }
 
@@ -68,45 +90,69 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
         title: newTaskTitle,
         description: newTaskDesc || undefined,
         priority: newTaskPriority,
+        status: createStatus,
         due_date: newTaskDueDate || undefined,
         parent_id: newTaskParentId || undefined,
       })
+      addToast('success', 'Task created')
       resetCreateForm()
       loadData()
     } catch (err) {
-      console.error(err)
+      addToast('error', 'Failed to create task')
     }
   }
 
   const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
     if (!accessToken) return
+    const pct = updates.completion_percentage
+    if (pct !== undefined && pct > 0 && pct < 100 && updates.status === undefined) {
+      updates.status = 'in_progress'
+    }
+    if (pct === 100 && updates.status === undefined) {
+      updates.status = 'completed'
+    }
     try {
       await api.updateTask(accessToken, taskId, updates)
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t))
       if (selectedTask?.id === taskId) setSelectedTask(prev => prev ? { ...prev, ...updates } : null)
     } catch (err) {
-      console.error(err)
+      addToast('error', 'Failed to update task')
+      loadData()
     }
   }
 
   const handleDeleteTask = async (taskId: string) => {
     if (!accessToken) return
-    if (!confirm('Delete this task?')) return
     try {
       await api.deleteTask(accessToken, taskId)
+      addToast('success', 'Task deleted')
       setTasks(prev => prev.filter(t => t.id !== taskId))
       if (selectedTask?.id === taskId) setSelectedTask(null)
     } catch (err) {
-      console.error(err)
+      addToast('error', 'Failed to delete task')
     }
+    setDeleteConfirm(null)
   }
 
-  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
-    await handleUpdateTask(taskId, { status })
+  const handleStatusToggle = async (taskId: string, current: TaskStatus) => {
+    await handleUpdateTask(taskId, { status: current === 'completed' ? 'pending' : 'completed' })
+  }
+
+  const handleStartTask = async (taskId: string, current: TaskStatus) => {
+    const target: TaskStatus = current === 'in_progress' ? 'pending' : 'in_progress'
+    await handleUpdateTask(taskId, { status: target })
   }
 
   const handlePriorityChange = async (taskId: string, priority: TaskPriority) => {
     await handleUpdateTask(taskId, { priority })
+  }
+
+  const handleInlineTitleSave = async (taskId: string, title: string) => {
+    await handleUpdateTask(taskId, { title })
+  }
+
+  const handleCommentAdded = (comment: Comment) => {
+    setTaskComments(prev => [...prev, comment])
   }
 
   const topLevelTasks = tasks.filter(t => !t.parent_id)
@@ -128,6 +174,16 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
     completed: filteredTasks.filter(t => t.status === 'completed'),
   }
 
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const isOverdue = (task: Task) => {
+    if (!task.due_date || task.status === 'completed') return false
+    return new Date(task.due_date) < new Date()
+  }
+
   if (loading) {
     return <div className="detail-loading"><span className="app-loading__text">Loading project...</span></div>
   }
@@ -144,6 +200,15 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
     { id: 'files', label: 'Files', icon: <IconFile /> },
   ]
 
+  const hasTasks = topLevelTasks.length > 0 || childTasks.length > 0
+
+  const memberOptions = project?.members?.map(m => ({ id: m.user_id, name: m.user_name })) || []
+
+  const cycleFilter = (setter: (v: string) => void, current: string, values: string[]) => {
+    const idx = values.indexOf(current)
+    setter(idx === values.length - 1 ? '' : values[idx + 1])
+  }
+
   return (
     <div>
       <div className="detail-header">
@@ -158,7 +223,7 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
             )}
           </div>
         </div>
-        <div className="detail-header__actions" /> 
+        <div className="detail-header__actions" />
       </div>
 
       <div className="detail-tabs">
@@ -175,20 +240,12 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
 
       <div className="detail-filters">
         <div className="detail-filters__group">
-          <FilterPill label="Due Date" value={filterDueDate || 'All'} onClick={() => setFilterDueDate(filterDueDate ? '' : 'undated')} />
-          <FilterPill label="Assignee" value={filterAssignee || 'All'} onClick={() => setFilterAssignee(filterAssignee ? '' : 'assigned')} />
-          <FilterPill
-            label="Priority"
-            value={filterPriority || 'All'}
-            onClick={() => setFilterPriority(filterPriority ? '' : 'high')}
-          />
-          <FilterPill
-            label="Status"
-            value={filterStatus || 'All'}
-            onClick={() => setFilterStatus(filterStatus ? '' : 'pending')}
-          />
+          <FilterPill label="Due Date" value={filterDueDate || 'All'} active={!!filterDueDate} onClick={() => cycleFilter(setFilterDueDate, filterDueDate, ['undated', 'dated'])} />
+          <FilterPill label="Assignee" value={filterAssignee || 'All'} active={!!filterAssignee} onClick={() => cycleFilter(setFilterAssignee, filterAssignee, ['assigned', 'unassigned'])} />
+          <FilterPill label="Priority" value={filterPriority || 'All'} active={!!filterPriority} onClick={() => cycleFilter(setFilterPriority, filterPriority, ['high', 'medium', 'low'])} />
+          <FilterPill label="Status" value={filterStatus || 'All'} active={!!filterStatus} onClick={() => cycleFilter(setFilterStatus, filterStatus, ['pending', 'in_progress', 'completed'])} />
         </div>
-        <Button size="sm" onClick={() => setShowCreateTask(true)}>
+        <Button size="sm" onClick={() => { setCreateStatus('pending'); setShowCreateTask(true) }}>
           <IconPlus /> Add New
         </Button>
       </div>
@@ -202,10 +259,12 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
               value={newTaskTitle}
               onChange={e => setNewTaskTitle(e.target.value)}
             />
-            <Input
+            <textarea
+              className="detail-create-textarea"
               placeholder="Description (optional)"
               value={newTaskDesc}
               onChange={e => setNewTaskDesc(e.target.value)}
+              rows={2}
             />
             <div className="detail-create-priority">
               <select
@@ -244,7 +303,17 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
         </Card>
       )}
 
-      {activeTab === 'list' && (
+      {!hasTasks && activeTab !== 'overview' && (
+        <div className="detail-empty">
+          <h3 className="detail-empty__title">Create your first task</h3>
+          <p className="detail-empty__desc">Tasks help you break down your project into manageable pieces. Start by adding a task.</p>
+          <Button size="sm" onClick={() => { setCreateStatus('pending'); setShowCreateTask(true) }}>
+            <IconPlus /> Create Task
+          </Button>
+        </div>
+      )}
+
+      {activeTab === 'list' && hasTasks && (
         <div className="detail-task-groups">
           {(['pending', 'in_progress', 'completed'] as TaskStatus[]).map(status => (
             <TaskGroup
@@ -252,18 +321,23 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
               status={status}
               tasks={groupedTasks[status]}
               childTasks={childTasks}
-              onStatusChange={handleStatusChange}
+              members={memberOptions}
+              isOverdue={isOverdue}
+              formatDate={formatDate}
+              onStatusToggle={handleStatusToggle}
+              onStartTask={handleStartTask}
               onPriorityChange={handlePriorityChange}
-              onDelete={handleDeleteTask}
+              onUpdateTask={handleUpdateTask}
+              onDelete={id => setDeleteConfirm(id)}
               onSelect={setSelectedTask}
-              onEdit={setEditingTask}
-              onAddTask={() => setShowCreateTask(true)}
+              onInlineTitleSave={handleInlineTitleSave}
+              onAddTask={() => { setCreateStatus(status); setShowCreateTask(true) }}
             />
           ))}
         </div>
       )}
 
-      {activeTab === 'board' && (
+      {activeTab === 'board' && hasTasks && (
         <div className="detail-board-columns">
           {(['pending', 'in_progress', 'completed'] as TaskStatus[]).map(status => (
             <div key={status} className="board-column">
@@ -276,9 +350,12 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
                     key={task.id}
                     task={task}
                     childTasks={childTasks.filter(ct => ct.parent_id === task.id)}
-                    onStatusChange={handleStatusChange}
+                    isOverdue={isOverdue}
+                    formatDate={formatDate}
+                    onStatusToggle={handleStatusToggle}
+                    onStartTask={handleStartTask}
                     onPriorityChange={handlePriorityChange}
-                    onDelete={handleDeleteTask}
+                    onDelete={id => setDeleteConfirm(id)}
                     onSelect={setSelectedTask}
                   />
                 ))}
@@ -292,9 +369,12 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
       )}
 
       {activeTab === 'calendar' && (
-        <Card className="placeholder-page">
-          <p className="placeholder-page__text">Calendar view coming in Phase 2</p>
-        </Card>
+        <CalendarView
+          tasks={tasks}
+          onSelectTask={setSelectedTask}
+          onUpdateTask={handleUpdateTask}
+          onQuickAdd={date => { setCreateStatus('pending'); setNewTaskDueDate(date); setShowCreateTask(true) }}
+        />
       )}
 
       {activeTab === 'files' && (
@@ -322,11 +402,22 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
 
       {selectedTask && (
         <div className="modal-overlay" onClick={() => setSelectedTask(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal modal--wide" onClick={e => e.stopPropagation()}>
             <div className="modal__header">
               <div className="modal__header-left">
-                <h2 className="modal__title">{selectedTask.title}</h2>
-                {selectedTask.description && <p className="modal__desc">{selectedTask.description}</p>}
+                <InlineEdit
+                  value={selectedTask.title}
+                  onSave={title => handleUpdateTask(selectedTask.id, { title })}
+                  className="modal__title"
+                />
+                {selectedTask.description !== undefined && (
+                  <InlineEdit
+                    value={selectedTask.description || ''}
+                    onSave={desc => handleUpdateTask(selectedTask.id, { description: desc || undefined })}
+                    placeholder="Add description..."
+                    className="modal__desc"
+                  />
+                )}
               </div>
               <button onClick={() => setSelectedTask(null)} className="modal__close"><IconX /></button>
             </div>
@@ -334,47 +425,62 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
               <div className="modal__grid">
                 <div>
                   <label className="modal__label">Status</label>
-                  <select
-                    value={selectedTask.status}
-                    onChange={e => handleStatusChange(selectedTask.id, e.target.value as TaskStatus)}
-                    className="detail-task-select"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
+                  <div className="modal__status-group">
+                    {(['pending', 'in_progress', 'completed'] as TaskStatus[]).map(s => (
+                      <button
+                        key={s}
+                        className={`modal__status-btn ${selectedTask.status === s ? 'modal__status-btn--active' : ''}`}
+                        onClick={() => handleUpdateTask(selectedTask.id, { status: s })}
+                      >
+                        {s === 'pending' ? 'Pending' : s === 'in_progress' ? 'In Progress' : 'Completed'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="modal__label">Priority</label>
-                  <select
+                  <PrioritySelect
                     value={selectedTask.priority}
-                    onChange={e => handlePriorityChange(selectedTask.id, e.target.value as TaskPriority)}
-                    className="detail-task-select"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                    onChange={value => handleUpdateTask(selectedTask.id, { priority: value })}
+                    size="md"
+                  />
                 </div>
                 <div>
                   <label className="modal__label">Due Date</label>
-                  <input
-                    type="date"
-                    value={selectedTask.due_date ? selectedTask.due_date.split('T')[0] : ''}
-                    onChange={e => handleUpdateTask(selectedTask.id, { due_date: e.target.value || undefined })}
-                    className="detail-task-select"
+                  <DateInput
+                    value={selectedTask.due_date}
+                    onChange={date => handleUpdateTask(selectedTask.id, { due_date: date || undefined })}
                   />
                 </div>
                 <div>
                   <label className="modal__label">Assignee</label>
-                  <span className="modal__assignee">
-                    {selectedTask.assignee_name ? (
-                      <Avatar name={selectedTask.assignee_name} size="sm" />
-                    ) : (
-                      <span className="task-assignee--empty">Unassigned</span>
-                    )}
-                  </span>
+                    <AssigneeSelect
+                      value={selectedTask.assignee_id}
+                      assigneeName={selectedTask.assignee_name}
+                      onChange={userId => handleUpdateTask(selectedTask.id, { assignee_id: userId || null })}
+                      options={memberOptions}
+                      size="md"
+                    />
                 </div>
+              </div>
+
+              <div className="modal__section">
+                <label className="modal__label">Progress</label>
+                <ProgressSlider
+                  value={selectedTask.completion_percentage}
+                  onChange={value => handleUpdateTask(selectedTask.id, { completion_percentage: value })}
+                />
+              </div>
+
+              <div className="modal__desc-full">
+                <label className="modal__label">Description</label>
+                <textarea
+                  className="modal__textarea"
+                  value={selectedTask.description || ''}
+                  onChange={e => handleUpdateTask(selectedTask.id, { description: e.target.value || undefined })}
+                  placeholder="Add a detailed description..."
+                  rows={3}
+                />
               </div>
 
               {childTasks.filter(ct => ct.parent_id === selectedTask.id).length > 0 && (
@@ -383,7 +489,7 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
                   {childTasks.filter(ct => ct.parent_id === selectedTask.id).map(child => (
                     <div key={child.id} className="modal__subtask">
                       <button
-                        onClick={() => handleStatusChange(child.id, child.status === 'completed' ? 'pending' : 'completed')}
+                        onClick={() => handleStatusToggle(child.id, child.status)}
                         className="task-title__checkbox"
                       >
                         {child.status === 'completed' ? (
@@ -395,93 +501,49 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
                       <span className={`modal__subtask-title${child.status === 'completed' ? ' modal__subtask-title--completed' : ''}`}>
                         {child.title}
                       </span>
-                      <PriorityBadge priority={child.priority} />
                     </div>
                   ))}
                 </div>
               )}
+
+              <NotesSection
+                taskId={selectedTask.id}
+                comments={taskComments}
+                onCommentAdded={handleCommentAdded}
+              />
             </div>
             <div className="modal__footer">
-              <Button variant="ghost" size="sm" onClick={() => { handleDeleteTask(selectedTask.id); setSelectedTask(null); }}>
+              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(selectedTask.id)}>
                 <IconTrash /> Delete
-              </Button>
-              <Button size="sm" onClick={() => { setEditingTask(selectedTask); setSelectedTask(null); }}>
-                <IconEdit /> Edit
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {editingTask && (
-        <div className="modal-overlay" onClick={() => setEditingTask(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal__header">
-              <h2 className="modal__title">Edit Task</h2>
-              <button onClick={() => setEditingTask(null)} className="modal__close"><IconX /></button>
-            </div>
-            <div className="modal__body">
-              <Input
-                placeholder="Task title"
-                value={editingTask.title}
-                onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
-              />
-              <textarea
-                placeholder="Description"
-                value={editingTask.description || ''}
-                onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
-                className="detail-create-desc"
-              />
-              <div className="detail-create-row">
-                <div>
-                  <label className="detail-create-label">Priority</label>
-                  <select
-                    value={editingTask.priority}
-                    onChange={e => setEditingTask({ ...editingTask, priority: e.target.value as TaskPriority })}
-                    className="detail-task-select"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="detail-create-label">Due Date</label>
-                  <input
-                    type="date"
-                    value={editingTask.due_date ? editingTask.due_date.split('T')[0] : ''}
-                    onChange={e => setEditingTask({ ...editingTask, due_date: e.target.value || undefined })}
-                    className="detail-task-select"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="modal__footer">
-              <Button variant="ghost" size="sm" onClick={() => setEditingTask(null)}>Cancel</Button>
-              <Button size="sm" onClick={() => {
-                handleUpdateTask(editingTask.id, {
-                  title: editingTask.title,
-                  description: editingTask.description,
-                  priority: editingTask.priority,
-                  due_date: editingTask.due_date,
-                })
-                setEditingTask(null)
-              }}>Save</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        title="Delete task?"
+        message="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => deleteConfirm && handleDeleteTask(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   )
 }
 
-function TaskGroup({ status, tasks, childTasks, onStatusChange, onPriorityChange, onDelete, onSelect, onEdit, onAddTask }: {
-  status: TaskStatus; tasks: Task[]; childTasks: Task[]
-  onStatusChange: (id: string, s: TaskStatus) => void
+function TaskGroup({ status, tasks, childTasks, members, isOverdue, formatDate, onStatusToggle, onStartTask, onPriorityChange, onUpdateTask, onDelete, onSelect, onInlineTitleSave, onAddTask }: {
+  status: TaskStatus; tasks: Task[]; childTasks: Task[]; members: { id: string; name: string }[]
+  isOverdue: (t: Task) => boolean; formatDate: (s: string) => string
+  onStatusToggle: (id: string, s: TaskStatus) => void
+  onStartTask: (id: string, s: TaskStatus) => void
   onPriorityChange: (id: string, p: TaskPriority) => void
+  onUpdateTask: (id: string, u: Partial<Task>) => void
   onDelete: (id: string) => void
   onSelect: (t: Task) => void
-  onEdit: (t: Task) => void
+  onInlineTitleSave: (id: string, title: string) => void
   onAddTask: () => void
 }) {
   const [expanded, setExpanded] = useState(true)
@@ -508,6 +570,7 @@ function TaskGroup({ status, tasks, childTasks, onStatusChange, onPriorityChange
               <thead>
                 <tr className="task-table__header-row">
                   <th className="task-table__header-cell task-table__header-cell--name">Name</th>
+                  <th className="task-table__header-cell task-table__header-cell--progress">Progress</th>
                   <th className="task-table__header-cell task-table__header-cell--assignee">Assignee</th>
                   <th className="task-table__header-cell task-table__header-cell--due">Due Date</th>
                   <th className="task-table__header-cell task-table__header-cell--priority">Priority</th>
@@ -516,73 +579,21 @@ function TaskGroup({ status, tasks, childTasks, onStatusChange, onPriorityChange
               </thead>
               <tbody>
                 {tasks.map(task => (
-                  <tr key={task.id} className="task-row">
-                    <td className="task-row__cell">
-                      <div className="task-title">
-                        <button
-                          onClick={() => {
-                            const nextStatus: Record<TaskStatus, TaskStatus> = {
-                              pending: 'in_progress',
-                              in_progress: 'completed',
-                              completed: 'pending',
-                            }
-                            onStatusChange(task.id, nextStatus[task.status])
-                          }}
-                          className="task-title__checkbox"
-                        >
-                          {task.status === 'completed' ? (
-                            <IconCheckCircle className="task-title__checkbox--completed" />
-                          ) : task.status === 'in_progress' ? (
-                            <IconCircleHalf className="task-title__checkbox--in_progress" />
-                          ) : (
-                            <IconCircle />
-                          )}
-                        </button>
-                        <span className={`task-title__text${task.status === 'completed' ? ' task-title__text--completed' : ''}`}>
-                          {task.title}
-                        </span>
-                      </div>
-                      {childTasks.filter(ct => ct.parent_id === task.id).length > 0 && (
-                        <div className="task-progress">
-                          <div className="task-progress__bar">
-                            <div className="task-progress__fill" style={{ width: `${Math.round(childTasks.filter(ct => ct.parent_id === task.id && ct.status === 'completed').length / childTasks.filter(ct => ct.parent_id === task.id).length * 100)}%` }} />
-                          </div>
-                          <span className="task-progress__text">{childTasks.filter(ct => ct.parent_id === task.id && ct.status === 'completed').length}/{childTasks.filter(ct => ct.parent_id === task.id).length}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="task-row__cell">
-                      {task.assignee_name ? (
-                        <Avatar name={task.assignee_name} size="sm" />
-                      ) : (
-                        <span className="task-assignee--empty">
-                          <IconUserCircle /> Assign
-                        </span>
-                      )}
-                    </td>
-                    <td className="task-row__cell">
-                      <span className={task.due_date ? 'task-date' : 'task-date--empty'}>
-                        {task.due_date ? (
-                          new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                        ) : (
-                          <><IconNoDate /> Add date</>
-                        )}
-                      </span>
-                    </td>
-                    <td className="task-row__cell">
-                      <select
-                        value={task.priority}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => onPriorityChange(task.id, e.target.value as TaskPriority)}
-                        className="detail-task-select detail-task-select--sm"
-                      >
-                        <option value="low">Low</option>
-                        <option value="medium">Med</option>
-                        <option value="high">High</option>
-                      </select>
-                    </td>
-                    <td className="task-row__cell task-actions" onClick={() => onSelect?.(task)}>⋯</td>
-                  </tr>
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    childTasks={childTasks.filter(ct => ct.parent_id === task.id)}
+                    members={members}
+                    isOverdue={isOverdue}
+                    formatDate={formatDate}
+                    onStatusToggle={onStatusToggle}
+                    onStartTask={onStartTask}
+                    onPriorityChange={onPriorityChange}
+                    onUpdateTask={onUpdateTask}
+                    onDelete={onDelete}
+                    onSelect={onSelect}
+                    onInlineTitleSave={onInlineTitleSave}
+                  />
                 ))}
               </tbody>
             </table>
@@ -598,13 +609,123 @@ function TaskGroup({ status, tasks, childTasks, onStatusChange, onPriorityChange
   )
 }
 
-function TaskCard({ task, childTasks, onStatusChange, onPriorityChange, onDelete, onSelect }: {
+function TaskRow({ task, childTasks, members, isOverdue, formatDate, onStatusToggle, onStartTask, onPriorityChange, onUpdateTask, onDelete, onSelect, onInlineTitleSave }: {
+  task: Task; childTasks: Task[]; members: { id: string; name: string }[]
+  isOverdue: (t: Task) => boolean; formatDate: (s: string) => string
+  onStatusToggle: (id: string, s: TaskStatus) => void
+  onStartTask: (id: string, s: TaskStatus) => void
+  onPriorityChange: (id: string, p: TaskPriority) => void
+  onUpdateTask: (id: string, u: Partial<Task>) => void
+  onDelete: (id: string) => void
+  onSelect: (t: Task) => void
+  onInlineTitleSave: (id: string, title: string) => void
+}) {
+  const hasChildren = childTasks.length > 0
+  return (
+    <>
+      <tr className={`task-row ${hasChildren ? 'task-row--parent' : ''}`}>
+        <td className="task-row__cell">
+          <div className="task-title">
+            <button onClick={() => onStatusToggle(task.id, task.status)} className="task-title__checkbox">
+              {task.status === 'completed' ? (
+                <IconCheckCircle className="task-title__checkbox--completed" />
+              ) : (
+                <IconCircle />
+              )}
+            </button>
+            <InlineEdit
+              value={task.title}
+              onSave={title => onInlineTitleSave(task.id, title)}
+              className="task-title__text"
+            />
+            {task.status === 'pending' && (
+              <button onClick={e => { e.stopPropagation(); onStartTask(task.id, task.status) }} className="task-start-btn">Start</button>
+            )}
+            {task.status === 'in_progress' && (
+              <button onClick={e => { e.stopPropagation(); onStartTask(task.id, task.status) }} className="task-start-btn">Pause</button>
+            )}
+          </div>
+        </td>
+        <td className="task-row__cell">
+          <div className="task-progress-inline">
+            <div className="task-progress-inline__bar">
+              <div className="task-progress-inline__fill" style={{ width: `${task.completion_percentage}%` }} />
+            </div>
+          </div>
+        </td>
+        <td className="task-row__cell">
+          <AssigneeSelect
+            value={task.assignee_id}
+            assigneeName={task.assignee_name}
+            onChange={userId => onUpdateTask(task.id, { assignee_id: userId || null })}
+            options={members}
+          />
+        </td>
+        <td className="task-row__cell">
+          <span className={task.due_date ? `task-date${isOverdue(task) ? ' task-date--overdue' : ''}` : 'task-date--empty'}>
+            {task.due_date ? formatDate(task.due_date) : <><IconNoDate /> Add date</>}
+          </span>
+        </td>
+        <td className="task-row__cell">
+          <PrioritySelect value={task.priority} onChange={value => onPriorityChange(task.id, value)} />
+        </td>
+        <td className="task-row__cell task-actions" onClick={() => onSelect(task)}>⋯</td>
+      </tr>
+      {childTasks.map(child => (
+        <tr key={child.id} className="task-row task-row--child">
+          <td className="task-row__cell">
+            <div className="task-title task-title--child">
+              <button onClick={() => onStatusToggle(child.id, child.status)} className="task-title__checkbox">
+                {child.status === 'completed' ? (
+                  <IconCheckCircle className="task-title__checkbox--completed" />
+                ) : (
+                  <IconCircle />
+                )}
+              </button>
+              <span
+                className={`task-title__text${child.status === 'completed' ? ' task-title__text--completed' : ''}`}
+                onClick={() => onSelect(child)}
+              >
+                {child.title}
+              </span>
+            </div>
+          </td>
+          <td className="task-row__cell">
+            <div className="task-progress-inline">
+              <div className="task-progress-inline__bar">
+                <div className="task-progress-inline__fill" style={{ width: `${child.completion_percentage}%` }} />
+              </div>
+            </div>
+          </td>
+          <td className="task-row__cell" />
+          <td className="task-row__cell">
+            <span className={child.due_date ? `task-date${isOverdue(child) ? ' task-date--overdue' : ''}` : 'task-date--empty'}>
+              {child.due_date ? formatDate(child.due_date) : <><IconNoDate /></>}
+            </span>
+          </td>
+          <td className="task-row__cell">
+            <PrioritySelect value={child.priority} onChange={value => onPriorityChange(child.id, value)} />
+          </td>
+          <td className="task-row__cell task-actions" onClick={() => onSelect(child)}>⋯</td>
+        </tr>
+      ))}
+    </>
+  )
+}
+
+function TaskCard({ task, childTasks, isOverdue, formatDate, onStatusToggle, onStartTask, onPriorityChange, onDelete, onSelect }: {
   task: Task; childTasks: Task[]
-  onStatusChange: (id: string, s: TaskStatus) => void
+  isOverdue: (t: Task) => boolean; formatDate: (s: string) => string
+  onStatusToggle: (id: string, s: TaskStatus) => void
+  onStartTask: (id: string, s: TaskStatus) => void
   onPriorityChange: (id: string, p: TaskPriority) => void
   onDelete: (id: string) => void
   onSelect: (t: Task) => void
 }) {
+  const childProgress = childTasks.length
+    ? Math.round(childTasks.filter(c => c.status === 'completed').length / childTasks.length * 100)
+    : null
+
   return (
     <Card padding="sm" className="board-card" onClick={() => onSelect(task)}>
       <div className="board-card__header">
@@ -614,48 +735,60 @@ function TaskCard({ task, childTasks, onStatusChange, onPriorityChange, onDelete
         </button>
       </div>
       <div className="board-card__meta">
-        <select
-          value={task.priority}
-          onClick={e => e.stopPropagation()}
-          onChange={e => onPriorityChange(task.id, e.target.value as TaskPriority)}
-          className="detail-task-select detail-task-select--sm"
-        >
-          <option value="low">Low</option>
-          <option value="medium">Med</option>
-          <option value="high">High</option>
-        </select>
+        <PrioritySelect value={task.priority} onChange={value => onPriorityChange(task.id, value)} size="sm" />
         {task.due_date && (
-          <span className="task-date">
-            {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          <span className={`task-date${isOverdue(task) ? ' task-date--overdue' : ''}`}>
+            {formatDate(task.due_date)}
           </span>
         )}
       </div>
+      {task.completion_percentage > 0 && (
+        <div className="board-card__progress">
+          <div className="board-card__progress-bar">
+            <div className="board-card__progress-fill" style={{ width: `${task.completion_percentage}%` }} />
+          </div>
+          <span className="board-card__progress-label">{task.completion_percentage}%</span>
+        </div>
+      )}
       <div className="board-card__footer">
-        <button onClick={e => {
-          e.stopPropagation()
-          const n: Record<TaskStatus, TaskStatus> = { pending: 'in_progress', in_progress: 'completed', completed: 'pending' }
-          onStatusChange(task.id, n[task.status])
-        }}>
+        <button onClick={e => { e.stopPropagation(); onStatusToggle(task.id, task.status) }}>
           {task.status === 'completed' ? (
             <IconCheckCircle className="task-title__checkbox--completed" />
-          ) : task.status === 'in_progress' ? (
-            <IconCircleHalf className="task-title__checkbox--in_progress" />
           ) : (
             <IconCircle />
           )}
         </button>
+        {task.status === 'pending' && (
+          <button onClick={e => { e.stopPropagation(); onStartTask(task.id, task.status) }} className="task-start-btn">Start</button>
+        )}
+        {task.status === 'in_progress' && (
+          <button onClick={e => { e.stopPropagation(); onStartTask(task.id, task.status) }} className="task-start-btn">Pause</button>
+        )}
         {childTasks.length > 0 && (
           <span className="task-title__subtasks">{childTasks.filter(c => c.status === 'completed').length}/{childTasks.length}</span>
         )}
         {task.assignee_name && <Avatar name={task.assignee_name} size="sm" />}
       </div>
+      {childTasks.length > 0 && (
+        <div className="board-card__children">
+          {childTasks.slice(0, 3).map(child => (
+            <div key={child.id} className="board-card__child">
+              <span className={`board-card__child-dot ${child.status === 'completed' ? 'board-card__child-dot--done' : ''}`} />
+              <span className={`board-card__child-name ${child.status === 'completed' ? 'board-card__child-name--done' : ''}`}>{child.title}</span>
+            </div>
+          ))}
+          {childTasks.length > 3 && (
+            <span className="board-card__child-more">+{childTasks.length - 3} more</span>
+          )}
+        </div>
+      )}
     </Card>
   )
 }
 
-function FilterPill({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+function FilterPill({ label, value, active, onClick }: { label: string; value: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="filter-pill">
+    <button onClick={onClick} className={`filter-pill${active ? ' filter-pill--active' : ''}`}>
       {label} <span className="filter-pill__value">{value}</span>
       <IconChevronDown />
     </button>
@@ -673,10 +806,6 @@ function IconPlus({ className = '' }: { className?: string }) { return <svg widt
 function IconChevronDown({ className = '' }: { className?: string }) { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"/></svg> }
 function IconDots() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> }
 function IconCircle() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg> }
-function IconCircleHalf({ className = '' }: { className?: string }) { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.5" className={className}><circle cx="12" cy="12" r="10"/></svg> }
 function IconCheckCircle({ className = '' }: { className?: string }) { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg> }
 function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> }
-function IconEdit() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> }
 function IconTrash() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> }
-function IconUserCircle() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> }
-function IconFlag() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"/></svg> }

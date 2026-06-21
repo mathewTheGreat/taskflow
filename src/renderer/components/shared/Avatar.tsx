@@ -1,7 +1,6 @@
 interface AvatarProps {
   name?: string
   size?: 'sm' | 'md' | 'lg'
-  color?: string
 }
 
 const sizeMap = {
@@ -11,14 +10,14 @@ const sizeMap = {
 }
 
 const colors = [
-  'bg-blue-200 text-blue-700',
-  'bg-purple-200 text-purple-700',
-  'bg-emerald-200 text-emerald-700',
-  'bg-amber-200 text-amber-700',
-  'bg-rose-200 text-rose-700',
-  'bg-cyan-200 text-cyan-700',
-  'bg-indigo-200 text-indigo-700',
-  'bg-pink-200 text-pink-700',
+  'avatar-clr--blue',
+  'avatar-clr--purple',
+  'avatar-clr--green',
+  'avatar-clr--amber',
+  'avatar-clr--rose',
+  'avatar-clr--cyan',
+  'avatar-clr--indigo',
+  'avatar-clr--pink',
 ]
 
 function getColor(name: string): string {
@@ -33,7 +32,7 @@ function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export function Avatar({ name, size = 'md', color }: AvatarProps) {
+export function Avatar({ name, size = 'md' }: AvatarProps) {
   if (!name) {
     return (
       <div className={`avatar avatar--empty ${sizeMap[size]}`}>
@@ -42,9 +41,9 @@ export function Avatar({ name, size = 'md', color }: AvatarProps) {
     )
   }
 
-  const colorClass = color || getColor(name)
+  const colorClass = getColor(name)
   return (
-    <div className={`avatar ${sizeMap[size]} font-semibold ${colorClass}`}>
+    <div className={`avatar ${sizeMap[size]} ${colorClass}`}>
       {getInitials(name)}
     </div>
   )
