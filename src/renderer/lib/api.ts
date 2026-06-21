@@ -87,7 +87,7 @@ export const api = {
   getTeams: (token: string) =>
     apiFetch<{ teams: Team[] }>('/teams', { token }),
 
-  createTeam: (token: string, data: { name: string; description?: string }) =>
+  createTeam: (token: string, data: { id?: string; name: string; description?: string }) =>
     apiFetch<Team>('/teams', { method: 'POST', body: data, token }),
 
   getTeam: (token: string, id: string) =>
@@ -114,7 +114,7 @@ export const api = {
     return apiFetch<{ projects: Project[]; total: number }>(`/projects?${qs}`, { token })
   },
 
-  createProject: (token: string, data: { name: string; description?: string; team_id?: string; start_date?: string; end_date?: string }) =>
+  createProject: (token: string, data: { id?: string; name: string; description?: string; team_id?: string; start_date?: string; end_date?: string }) =>
     apiFetch<Project>('/projects', { method: 'POST', body: data, token }),
 
   getProject: (token: string, id: string) =>
@@ -137,7 +137,7 @@ export const api = {
     return apiFetch<{ tasks: Task[]; total: number }>(`/tasks?${qs}`, { token })
   },
 
-  createTask: (token: string, data: { project_id: string; title: string; description?: string; assignee_id?: string; parent_id?: string; status?: string; priority?: string; due_date?: string; estimated_hours?: number }) =>
+  createTask: (token: string, data: { id?: string; project_id: string; title: string; description?: string; assignee_id?: string; parent_id?: string; status?: string; priority?: string; due_date?: string; estimated_hours?: number }) =>
     apiFetch<Task>('/tasks', { method: 'POST', body: data, token }),
 
   getTask: (token: string, id: string) =>
@@ -154,6 +154,20 @@ export const api = {
 
   getComments: (token: string, taskId: string) =>
     apiFetch<{ comments: Comment[] }>(`/tasks/${taskId}/comments`, { token }),
+
+  sync: (token: string) =>
+    apiFetch<{ processed: number; failed: number; remaining: number }>('/sync', { method: 'POST', token }),
+}
+
+export function setupAutoSync(getToken: () => string | null): void {
+  const sync = async () => {
+    const token = getToken()
+    if (!token) return
+    try { await api.sync(token) } catch { /* best-effort */ }
+  }
+  window.addEventListener('online', sync)
+  // Also sync on mount in case there's a backlog from last session
+  sync()
 }
 
 // Type aliases for use in the renderer

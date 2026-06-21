@@ -1,14 +1,27 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { AppError } from '../middleware/error'
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth'
+import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate } from '../services/cache'
+import { syncQueuePush } from '../services/cache'
 
 const router = Router()
 
 router.use(authMiddleware)
 
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientInitializationError) return true
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return ['P1001', 'P1002', 'P1008'].includes(err.code)
+  }
+  const msg = (err as Error)?.message?.toLowerCase() || ''
+  return /econnrefused|econnreset|etimedout|network.*(unreachable|error)/.test(msg)
+}
+
 const createTaskSchema = z.object({
+  id: z.string().uuid().optional(),
   project_id: z.string().uuid(),
   title: z.string().min(1).max(300),
   description: z.string().max(5000).optional(),
@@ -111,6 +124,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
 
     const task = await prisma.task.create({
       data: {
+        ...(data.id && { id: data.id }),
         project_id: data.project_id,
         title: data.title,
         description: data.description,
@@ -139,7 +153,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       },
     })
 
-    res.status(201).json({
+    const result = {
       id: task.id,
       project_id: task.project_id,
       title: task.title,
@@ -153,55 +167,88 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
       completion_percentage: task.completion_percentage,
       created_by: task.created_by,
       created_at: task.created_at,
-    })
+    }
+
+    cacheSet('cache_tasks', task.id, result)
+    res.status(201).json(result)
   } catch (err) {
-    next(err)
+    if (isNetworkError(err)) {
+      const data = req.body as Record<string, unknown>
+      syncQueuePush('create', 'tasks', data)
+      if (data.id) {
+        cacheSet('cache_tasks', data.id as string, data)
+      }
+      res.status(503).json({ offline: true, message: 'Saved offline - will sync when connection restores' })
+    } else {
+      next(err)
+    }
   }
 })
 
 // GET /api/tasks/:id
 router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
-    const task = await prisma.task.findUnique({
-      where: { id: req.params.id as string },
-      include: {
-        assignee: { select: { id: true, name: true } },
-        comments: {
-          include: { user: { select: { name: true } } },
-          orderBy: { created_at: 'asc' },
+    const id = req.params.id as string
+
+    // Try fresh cache first
+    const cached = cacheGet<Record<string, unknown>>('cache_tasks', id)
+    if (cached) return res.json(cached)
+
+    // Check for stale cache (offline fallback)
+    const stale = cacheGetWithStale<Record<string, unknown>>('cache_tasks', id)
+
+    try {
+      const task = await prisma.task.findUnique({
+        where: { id },
+        include: {
+          assignee: { select: { id: true, name: true } },
+          comments: {
+            include: { user: { select: { name: true } } },
+            orderBy: { created_at: 'asc' },
+          },
         },
-      },
-    })
+      })
 
-    if (!task) {
-      throw new AppError('Task not found', 404)
+      if (!task) {
+        throw new AppError('Task not found', 404)
+      }
+
+      const result = {
+        id: task.id,
+        project_id: task.project_id,
+        title: task.title,
+        description: task.description,
+        assignee_id: task.assignee_id,
+        assignee_name: task.assignee?.name || null,
+        parent_id: task.parent_id,
+        status: task.status.toLowerCase(),
+        priority: task.priority.toLowerCase(),
+        start_date: task.start_date,
+        due_date: task.due_date,
+        estimated_hours: task.estimated_hours,
+        completion_percentage: task.completion_percentage,
+        created_by: task.created_by,
+        created_at: task.created_at,
+        comments: task.comments.map((c: { id: string; task_id: string; user_id: string; message: string; created_at: Date; user: { name: string } }) => ({
+          id: c.id,
+          task_id: c.task_id,
+          user_id: c.user_id,
+          user_name: c.user.name,
+          message: c.message,
+          created_at: c.created_at,
+        })),
+      }
+
+      cacheSet('cache_tasks', id, result)
+      return res.json(result)
+    } catch (err) {
+      // Neon failed — serve stale cache if available
+      if (isNetworkError(err) && stale) {
+        res.set('X-Cache-Stale', 'true')
+        return res.json(stale.data)
+      }
+      throw err
     }
-
-    res.json({
-      id: task.id,
-      project_id: task.project_id,
-      title: task.title,
-      description: task.description,
-      assignee_id: task.assignee_id,
-      assignee_name: task.assignee?.name || null,
-      parent_id: task.parent_id,
-      status: task.status.toLowerCase(),
-      priority: task.priority.toLowerCase(),
-      start_date: task.start_date,
-      due_date: task.due_date,
-      estimated_hours: task.estimated_hours,
-      completion_percentage: task.completion_percentage,
-      created_by: task.created_by,
-      created_at: task.created_at,
-      comments: task.comments.map((c: { id: string; task_id: string; user_id: string; message: string; created_at: Date; user: { name: string } }) => ({
-        id: c.id,
-        task_id: c.task_id,
-        user_id: c.user_id,
-        user_name: c.user.name,
-        message: c.message,
-        created_at: c.created_at,
-      })),
-    })
   } catch (err) {
     next(err)
   }
@@ -210,10 +257,11 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
 // PUT /api/tasks/:id
 router.put('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
+    const id = req.params.id as string
     const data = updateTaskSchema.parse(req.body)
 
     const task = await prisma.task.update({
-      where: { id: req.params.id as string },
+      where: { id },
       data: {
         ...(data.project_id !== undefined && { project_id: data.project_id }),
         ...(data.title !== undefined && { title: data.title }),
@@ -232,7 +280,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       },
     })
 
-    res.json({
+    const result = {
       id: task.id,
       project_id: task.project_id,
       title: task.title,
@@ -246,19 +294,42 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
       completion_percentage: task.completion_percentage,
       created_by: task.created_by,
       created_at: task.created_at,
-    })
+    }
+
+    cacheSet('cache_tasks', id, result)
+    res.json(result)
   } catch (err) {
-    next(err)
+    if (isNetworkError(err)) {
+      const id = req.params.id as string
+      syncQueuePush('update', 'tasks', { id, ...req.body })
+      // Optimistically update cache
+      const cached = cacheGetWithStale<Record<string, unknown>>('cache_tasks', id)
+      if (cached) {
+        cacheSet('cache_tasks', id, { ...cached.data, ...req.body })
+      }
+      res.status(503).json({ offline: true, message: 'Saved offline - will sync when connection restores' })
+    } else {
+      next(err)
+    }
   }
 })
 
 // DELETE /api/tasks/:id
 router.delete('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthRequest, res: Response, next) => {
   try {
-    await prisma.task.delete({ where: { id: req.params.id as string } })
+    const id = req.params.id as string
+    await prisma.task.delete({ where: { id } })
+    cacheInvalidate('cache_tasks', id)
     res.status(204).send()
   } catch (err) {
-    next(err)
+    if (isNetworkError(err)) {
+      const id = req.params.id as string
+      syncQueuePush('delete', 'tasks', { id })
+      cacheInvalidate('cache_tasks', id)
+      res.status(503).json({ offline: true, message: 'Saved offline - will sync when connection restores' })
+    } else {
+      next(err)
+    }
   }
 })
 

@@ -85,6 +85,17 @@ export function cacheGet<T>(table: string, id: string): T | null {
   } catch { return null }
 }
 
+export function cacheGetWithStale<T>(table: string, id: string): { data: T; expired: boolean } | null {
+  const database = getDb()
+  if (!database) return null
+  try {
+    const row = database.prepare(`SELECT data, cached_at FROM ${table} WHERE id = ?`).get(id) as { data: string; cached_at: number } | undefined
+    if (!row) return null
+    const expired = Date.now() - row.cached_at > CACHE_TTL_MS
+    return { data: JSON.parse(row.data) as T, expired }
+  } catch { return null }
+}
+
 export function cacheSet<T>(table: string, id: string, data: T): void {
   const database = getDb()
   if (!database) return

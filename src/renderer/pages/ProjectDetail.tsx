@@ -84,8 +84,27 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
 
   const handleCreateTask = async () => {
     if (!accessToken || !newTaskTitle.trim()) return
+    const clientId = crypto.randomUUID()
+    const optimisticTask: Task = {
+      id: clientId,
+      project_id: projectId,
+      title: newTaskTitle,
+      description: newTaskDesc || undefined,
+      assignee_id: undefined,
+      assignee_name: undefined,
+      parent_id: newTaskParentId || undefined,
+      status: createStatus,
+      priority: newTaskPriority,
+      due_date: newTaskDueDate || undefined,
+      completion_percentage: createStatus === 'completed' ? 100 : 0,
+      created_by: '',
+      created_at: new Date().toISOString(),
+    }
+    setTasks(prev => [...prev, optimisticTask])
+    resetCreateForm()
     try {
       await api.createTask(accessToken, {
+        id: clientId,
         project_id: projectId,
         title: newTaskTitle,
         description: newTaskDesc || undefined,
@@ -95,10 +114,9 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
         parent_id: newTaskParentId || undefined,
       })
       addToast('success', 'Task created')
-      resetCreateForm()
-      loadData()
     } catch (err) {
-      addToast('error', 'Failed to create task')
+      addToast('error', 'Failed to create task - saved offline')
+      loadData()
     }
   }
 

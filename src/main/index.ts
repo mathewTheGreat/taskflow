@@ -9,7 +9,9 @@ import { projectsRouter } from './routes/projects'
 import { tasksRouter } from './routes/tasks'
 import { dashboardRouter } from './routes/dashboard'
 import { errorHandler } from './middleware/error'
+import { authMiddleware } from './middleware/auth'
 import { initializeCache } from './services/cache'
+import { processSyncQueue } from './services/sync'
 
 const PORT = process.env.API_PORT || 3001
 
@@ -88,6 +90,18 @@ export async function createServer() {
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  })
+
+  // Sync endpoint — replays queued offline operations
+  app.post('/api/sync', authMiddleware, async (req, res, next) => {
+    try {
+      const authHeader = req.headers.authorization
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+      const result = await processSyncQueue(() => token)
+      res.json(result)
+    } catch (err) {
+      next(err)
+    }
   })
 
   // Error handler

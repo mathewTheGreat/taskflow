@@ -88,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const initialized = useRef(false)
+  const syncListenerAdded = useRef(false)
 
   useEffect(() => {
     if (initialized.current) return
@@ -113,6 +114,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
     } else {
       setState(s => ({ ...s, isLoading: false }))
+    }
+
+    // Auto-sync when coming back online
+    if (!syncListenerAdded.current) {
+      syncListenerAdded.current = true
+      const handleOnline = async () => {
+        const tokens = loadTokens()
+        if (tokens.accessToken) {
+          try { await api.sync(tokens.accessToken) } catch { /* best-effort */ }
+        }
+      }
+      window.addEventListener('online', handleOnline)
+      // Sync on mount to catch backlog from last session
+      handleOnline()
     }
   }, [])
 
