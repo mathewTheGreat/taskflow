@@ -17,42 +17,43 @@ let serverProcess: ChildProcess | null = null
 
 const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged
 
-function startServer() {
-  const serverEntry = isDev
-    ? path.join(projectRoot, 'src/main/index.ts')
-    : path.join(__dirname, 'main/index.js')
+async function startServer(): Promise<void> {
+  if (isDev) {
+    // Dev mode: spawn child process with tsx for hot-reload
+    const serverEntry = path.join(projectRoot, 'src/main/index.ts')
+    const tsxCli = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs')
+    console.log('[Electron] Starting API server via tsx:', serverEntry)
 
-  const tsxCli = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs')
-
-  // In production, process.execPath (Electron's Node) runs as a regular Node via ELECTRON_RUN_AS_NODE
-  const serverCommand = process.execPath
-  const serverArgs = isDev ? [tsxCli, serverEntry] : [serverEntry]
-
-  console.log('[Electron] Starting API server:', serverEntry)
-
-  serverProcess = spawn(serverCommand, serverArgs, {
+    serverProcess = spawn(process.execPath, [tsxCli, serverEntry], {
       cwd: projectRoot,
       env: {
         ...process.env,
         API_PORT: '3001',
-        NODE_ENV: isDev ? 'development' : 'production',
-        ELECTRON_RUN_AS_NODE: '1',
+        NODE_ENV: 'development',
       },
       stdio: 'pipe',
-    }
-  )
+    })
 
-  serverProcess.stdout?.on('data', (data: Buffer) => {
-    console.log(`[Server] ${data.toString().trim()}`)
-  })
+    serverProcess.stdout?.on('data', (data: Buffer) => {
+      console.log(`[Server] ${data.toString().trim()}`)
+    })
+    serverProcess.stderr?.on('data', (data: Buffer) => {
+      console.error(`[Server Error] ${data.toString().trim()}`)
+    })
+    serverProcess.on('close', (code: number) => {
+      console.log(`[Electron] Server process exited with code ${code}`)
+    })
 
-  serverProcess.stderr?.on('data', (data: Buffer) => {
-    console.error(`[Server Error] ${data.toString().trim()}`)
-  })
-
-  serverProcess.on('close', (code: number) => {
-    console.log(`[Electron] Server process exited with code ${code}`)
-  })
+    // Wait for server to be ready
+    await new Promise(resolve => setTimeout(resolve, 3000))
+  } else {
+    // Production: inline the Express server in the Electron process
+    console.log('[Electron] Starting inline API server...')
+    const { startServer: runServer } = await import(path.join(__dirname, '../src/main/index.js'))
+    runServer()
+    // Wait briefly for Express to start listening
+    await new Promise(resolve => setTimeout(resolve, 2000))
+  }
 }
 
 function createWindow() {
@@ -84,12 +85,9 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
-  startServer()
-
-  setTimeout(() => {
-    createWindow()
-  }, 2000)
+app.whenReady().then(async () => {
+  await startServer()
+  createWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -100,7 +98,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    if (serverProcess) {
+    if (isDev && serverProcess) {
       serverProcess.kill()
     }
     app.quit()
@@ -108,7 +106,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  if (serverProcess) {
+  // Only kill the child process in dev mode — production runs inline
+  if (isDev && serverProcess) {
     serverProcess.kill()
   }
 })

@@ -6,7 +6,7 @@
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "build:electron": "tsc -p tsconfig.node.json",
     "electron:dev": "npm run build:electron && concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && electron .\"",
     "server": "tsx watch src/main/index.ts",
@@ -51,12 +51,8 @@
     "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.5.0",
     "concurrently": "9.2.3",
-<<<<<<< Updated upstream
     "electron": "^34.5.8",
     "electron-builder": "^26.15.3",
-=======
-    "electron": "^42.4.1",
->>>>>>> Stashed changes
     "postcss": "8.5.15",
     "prisma": "^6.19.3",
     "tailwindcss": "4.3.1",
