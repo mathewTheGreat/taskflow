@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:electron": "tsc -p tsconfig.node.json",
+    "build:electron": "tsc -p tsconfig.node.json && node -e \"require('fs').copyFileSync('electron/preload.js','dist-electron/electron/preload.js')\"",
     "electron:dev": "npm run build:electron && concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && electron .\"",
     "server": "tsx watch src/main/index.ts",
     "server:build": "tsc -p tsconfig.node.json",
