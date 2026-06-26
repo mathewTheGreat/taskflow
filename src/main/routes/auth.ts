@@ -3,9 +3,9 @@ import path from 'path'
 import { Router, Request, Response, NextFunction } from 'express'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma'
-import { AppError } from '../middleware/error'
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, AuthRequest, TokenPayload } from '../middleware/auth'
+import { prisma } from '../lib/prisma.js'
+import { AppError } from '../middleware/error.js'
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, AuthRequest, TokenPayload } from '../middleware/auth.js'
 import { Role } from '@shared/types'
 
 const authDebugDir = path.resolve(process.cwd(), 'logs')

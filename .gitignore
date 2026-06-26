@@ -23,6 +23,7 @@ npm-debug.log*
 
 # Prisma
 prisma/migrations/
+src/main/generated/
 
 # SQLite cache
 *.db

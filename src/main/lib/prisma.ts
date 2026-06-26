@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../generated/prisma-client'
 import { PrismaNeon } from '@prisma/adapter-neon'
 
 const globalForPrisma = globalThis as unknown as {
@@ -12,7 +12,6 @@ function createPrismaClient() {
   }
 
   const adapter = new PrismaNeon({ connectionString })
-  console.log('[Prisma] using Neon adapter with connectionString length', connectionString.length)
 
   return new PrismaClient({
     adapter,

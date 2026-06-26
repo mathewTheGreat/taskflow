@@ -1,11 +1,11 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
-import { Prisma } from '@prisma/client'
-import { prisma } from '../lib/prisma'
-import { AppError } from '../middleware/error'
-import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth'
-import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate } from '../services/cache'
-import { syncQueuePush } from '../services/cache'
+import { Prisma } from '../generated/prisma-client'
+import { prisma } from '../lib/prisma.js'
+import { AppError } from '../middleware/error.js'
+import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
+import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate } from '../services/cache.js'
+import { syncQueuePush } from '../services/cache.js'
 
 const router = Router()
 

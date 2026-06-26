@@ -1,4 +1,4 @@
-import { syncQueueGetPending, syncQueueRemove, syncQueueIncrementRetry } from './cache'
+import { syncQueueGetPending, syncQueueRemove, syncQueueIncrementRetry } from './cache.js'
 
 const API_BASE = 'http://localhost:3001/api'
 const MAX_RETRIES = 3

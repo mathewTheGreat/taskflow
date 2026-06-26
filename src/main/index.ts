@@ -2,16 +2,16 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
-import { authRouter } from './routes/auth'
-import { usersRouter } from './routes/users'
-import { teamsRouter } from './routes/teams'
-import { projectsRouter } from './routes/projects'
-import { tasksRouter } from './routes/tasks'
-import { dashboardRouter } from './routes/dashboard'
-import { errorHandler } from './middleware/error'
-import { authMiddleware } from './middleware/auth'
-import { initializeCache } from './services/cache'
-import { processSyncQueue } from './services/sync'
+import { authRouter } from './routes/auth.js'
+import { usersRouter } from './routes/users.js'
+import { teamsRouter } from './routes/teams.js'
+import { projectsRouter } from './routes/projects.js'
+import { tasksRouter } from './routes/tasks.js'
+import { dashboardRouter } from './routes/dashboard.js'
+import { errorHandler } from './middleware/error.js'
+import { authMiddleware } from './middleware/auth.js'
+import { initializeCache } from './services/cache.js'
+import { processSyncQueue } from './services/sync.js'
 
 const PORT = process.env.API_PORT || 3001
 
@@ -112,8 +112,15 @@ export async function createServer() {
 
 export function startServer() {
   createServer().then(app => {
-    app.listen(PORT, () => {
-      console.log(`[TaskFlow API] Running on http://localhost:${PORT}`)
+    return new Promise<void>((resolve, reject) => {
+      const server = app.listen(PORT, () => {
+        console.log(`[TaskFlow API] Running on http://localhost:${PORT}`)
+        resolve()
+      })
+      server.on('error', (err: Error) => {
+        console.error(`[TaskFlow API] Failed to listen on port ${PORT}:`, err.message)
+        reject(err)
+      })
     })
   }).catch(err => {
     console.error('[TaskFlow API] Failed to start:', err)

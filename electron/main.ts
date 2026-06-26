@@ -1,21 +1,55 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, execSync, ChildProcess } from 'child_process'
 import { config } from 'dotenv'
-import { fileURLToPath } from 'url'
 
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+// Kill stale TaskFlow processes from previous installs (they don't have the single-instance lock)
+function killStaleInstances() {
+  try {
+    const currentPid = process.pid
+    const output = execSync(
+      `powershell -Command "Get-CimInstance Win32_Process -Filter \\\"Name='TaskFlow.exe' AND ProcessId -ne ${currentPid}\\\" | Select-Object -ExpandProperty ProcessId"`,
+      { encoding: 'utf8', timeout: 5000 }
+    )
+    const pids = output.trim().split('\n').filter(Boolean).map(Number).filter(n => !isNaN(n) && n > 0)
+    for (const pid of pids) {
+      try { process.kill(pid) } catch {}
+    }
+  } catch {}
+}
+killStaleInstances()
 
-// Load .env from project root (go up from dist-electron/electron/ to project root)
+// Single-instance lock — prevents port conflicts from stale instances
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
+// Load .env from asar root (dist-electron/electron/ -> app.asar/)
 const projectRoot = path.resolve(__dirname, '../..')
-config({ path: path.join(projectRoot, '.env') })
+const envPath = path.join(projectRoot, '.env')
+console.log('[Electron] Looking for .env at:', envPath)
+config({ path: envPath })
+
+// Force production env when packaged regardless of .env contents
+if (app.isPackaged) {
+  process.env.NODE_ENV = 'production'
+}
+
+console.log('[Electron] DATABASE_URL set:', !!process.env.DATABASE_URL)
+console.log('[Electron] isDev:', !app.isPackaged, 'NODE_ENV:', process.env.NODE_ENV)
 
 let mainWindow: BrowserWindow | null = null
 let serverProcess: ChildProcess | null = null
 
-const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged
+const isDev = !app.isPackaged
 
 async function startServer(): Promise<void> {
   if (isDev) {
@@ -40,6 +74,9 @@ async function startServer(): Promise<void> {
     serverProcess.stderr?.on('data', (data: Buffer) => {
       console.error(`[Server Error] ${data.toString().trim()}`)
     })
+    serverProcess.on('error', (err: Error) => {
+      console.error('[Electron] Server process spawn error:', err.message)
+    })
     serverProcess.on('close', (code: number) => {
       console.log(`[Electron] Server process exited with code ${code}`)
     })
@@ -49,10 +86,17 @@ async function startServer(): Promise<void> {
   } else {
     // Production: inline the Express server in the Electron process
     console.log('[Electron] Starting inline API server...')
-    const { startServer: runServer } = await import(path.join(__dirname, '../src/main/index.js'))
-    runServer()
-    // Wait briefly for Express to start listening
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    try {
+      const { startServer: runServer } = require(path.join(__dirname, '../src/main/index.js'))
+      runServer()
+      // Wait briefly for Express to start listening
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const stack = err instanceof Error ? err.stack : ''
+      console.error('[Electron] Failed to load inline server:', msg, stack)
+      dialog.showErrorBox('Server Error', `Failed to start API server:\n${msg}`)
+    }
   }
 }
 
@@ -77,7 +121,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(path.join(projectRoot, 'dist-react', 'index.html'))
   }
 
   mainWindow.on('closed', () => {

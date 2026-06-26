@@ -1,8 +1,8 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma'
-import { AppError } from '../middleware/error'
-import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth'
+import { prisma } from '../lib/prisma.js'
+import { AppError } from '../middleware/error.js'
+import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
 

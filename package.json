@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:electron": "tsc -p tsconfig.node.json && node -e \"require('fs').copyFileSync('electron/preload.js','dist-electron/electron/preload.js')\"",
+    "build:electron": "tsc -p tsconfig.node.json && node -e \"require('fs').copyFileSync('electron/preload.js','dist-electron/electron/preload.js')\" && node -e \"require('fs').cpSync('src/main/generated','dist-electron/src/main/generated',{recursive:true})\"",
     "electron:dev": "npm run build:electron && concurrently \"npm run dev\" \"npm run server\" \"wait-on http://localhost:5173 && electron .\"",
     "server": "tsx watch src/main/index.ts",
     "server:build": "tsc -p tsconfig.node.json",
@@ -54,7 +54,7 @@
     "electron": "^34.5.8",
     "electron-builder": "^26.15.3",
     "postcss": "8.5.15",
-    "prisma": "^6.19.3",
+    "prisma": "^7.8.0",
     "tailwindcss": "4.3.1",
     "tsx": "4.22.4",
     "typescript": "5.9.3",
@@ -70,8 +70,7 @@
       ".env"
     ],
     "asarUnpack": [
-      "node_modules/better-sqlite3/**/*",
-      "node_modules/@prisma/client/**/*"
+      "node_modules/better-sqlite3/**/*"
     ],
     "directories": {
       "output": "release"
