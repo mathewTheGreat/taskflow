@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { spawn, execSync, ChildProcess } from 'child_process'
 import { config } from 'dotenv'
+import http from 'http'
 
 // Kill stale TaskFlow processes from previous installs (they don't have the single-instance lock)
 function killStaleInstances() {
@@ -51,6 +52,34 @@ let serverProcess: ChildProcess | null = null
 
 const isDev = !app.isPackaged
 
+function waitForHealth(url: string, maxRetries = 30, intervalMs = 500): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let attempts = 0
+    const check = () => {
+      attempts++
+      const req = http.get(url, (res) => {
+        if (res.statusCode === 200) {
+          console.log('[Electron] Server health check passed')
+          resolve()
+        } else if (attempts < maxRetries) {
+          setTimeout(check, intervalMs)
+        } else {
+          reject(new Error(`Server health check failed after ${maxRetries} attempts`))
+        }
+      })
+      req.on('error', () => {
+        if (attempts < maxRetries) {
+          setTimeout(check, intervalMs)
+        } else {
+          reject(new Error(`Server health check failed after ${maxRetries} attempts`))
+        }
+      })
+      req.end()
+    }
+    check()
+  })
+}
+
 async function startServer(): Promise<void> {
   if (isDev) {
     // Dev mode: spawn child process with tsx for hot-reload
@@ -81,16 +110,16 @@ async function startServer(): Promise<void> {
       console.log(`[Electron] Server process exited with code ${code}`)
     })
 
-    // Wait for server to be ready
-    await new Promise(resolve => setTimeout(resolve, 3000))
+    // Wait for server to be ready via health check
+    await waitForHealth('http://localhost:3001/api/health')
   } else {
     // Production: inline the Express server in the Electron process
     console.log('[Electron] Starting inline API server...')
     try {
       const { startServer: runServer } = require(path.join(__dirname, '../src/main/index.js'))
       runServer()
-      // Wait briefly for Express to start listening
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Wait for server to be ready via health check
+      await waitForHealth('http://localhost:3001/api/health')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       const stack = err instanceof Error ? err.stack : ''

@@ -156,7 +156,7 @@ export const api = {
     apiFetch<{ comments: Comment[] }>(`/tasks/${taskId}/comments`, { token }),
 
   sync: (token: string) =>
-    apiFetch<{ processed: number; failed: number; remaining: number }>('/sync', { method: 'POST', token }),
+    apiFetch<{ processed: number; failed: number; remaining: number; pulled: number }>('/sync', { method: 'POST', token }),
 }
 
 export function setupAutoSync(getToken: () => string | null): void {

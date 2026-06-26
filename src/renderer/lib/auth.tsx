@@ -8,6 +8,8 @@ interface AuthState {
   refreshToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
+  isOffline: boolean
+  pendingSyncCount: number
 }
 
 interface AuthContextType extends AuthState {
@@ -69,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshToken: tokens.refreshToken,
       isAuthenticated: !!tokens.accessToken,
       isLoading: !!tokens.accessToken,
+      isOffline: !navigator.onLine,
+      pendingSyncCount: 0,
     }
   })
 
@@ -96,21 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (state.accessToken) {
       api.getMe(state.accessToken)
-        .then(user => setState(s => ({ ...s, user, isLoading: false })))
+        .then(user => setState(s => ({ ...s, user, isLoading: false, isOffline: false })))
         .catch(async () => {
+          // Offline — try refresh first
           const refreshed = await refreshAccessToken()
           if (refreshed) {
             const tokens = loadTokens()
             if (tokens.accessToken) {
               try {
                 const user = await api.getMe(tokens.accessToken)
-                setState(s => ({ ...s, user, isLoading: false }))
+                setState(s => ({ ...s, user, isLoading: false, isOffline: false }))
                 return
               } catch {}
             }
           }
-          saveTokens(null, null)
-          setState(s => ({ ...s, user: null, accessToken: null, refreshToken: null, isAuthenticated: false, isLoading: false }))
+          // Still offline — allow cached session with tokens
+          setState(s => ({ ...s, isLoading: false, isOffline: true }))
         })
     } else {
       setState(s => ({ ...s, isLoading: false }))
@@ -120,14 +125,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!syncListenerAdded.current) {
       syncListenerAdded.current = true
       const handleOnline = async () => {
+        setState(s => ({ ...s, isOffline: false }))
         const tokens = loadTokens()
         if (tokens.accessToken) {
-          try { await api.sync(tokens.accessToken) } catch { /* best-effort */ }
+          try {
+            const result = await api.sync(tokens.accessToken)
+            setState(s => ({ ...s, pendingSyncCount: result.remaining || 0 }))
+          } catch { /* best-effort */ }
         }
       }
+      const handleOffline = () => {
+        setState(s => ({ ...s, isOffline: true }))
+      }
       window.addEventListener('online', handleOnline)
+      window.addEventListener('offline', handleOffline)
       // Sync on mount to catch backlog from last session
-      handleOnline()
+      if (navigator.onLine) {
+        handleOnline()
+      } else {
+        handleOffline()
+      }
     }
   }, [])
 
@@ -142,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshToken: result.refreshToken,
       isAuthenticated: true,
       isLoading: false,
+      isOffline: false,
+      pendingSyncCount: 0,
     })
   }, [])
 
@@ -156,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshToken: result.refreshToken,
       isAuthenticated: true,
       isLoading: false,
+      isOffline: false,
+      pendingSyncCount: 0,
     })
   }, [])
 
@@ -168,6 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
+      isOffline: false,
+      pendingSyncCount: 0,
     })
   }, [state.accessToken])
 

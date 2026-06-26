@@ -4,7 +4,7 @@ import { Prisma } from '../generated/prisma-client'
 import { prisma } from '../lib/prisma.js'
 import { AppError } from '../middleware/error.js'
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
-import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate } from '../services/cache.js'
+import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, cacheSetList, kvCacheSet, kvCacheGet, kvCacheGetWithStale } from '../services/cache.js'
 import { syncQueuePush } from '../services/cache.js'
 
 const router = Router()
@@ -64,54 +64,77 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100)
     const offset = parseInt(req.query.offset as string) || 0
 
-    const where: Record<string, unknown> = {}
-    if (projectId) where.project_id = projectId
-    if (assigneeId) where.assignee_id = assigneeId
-    if (status) where.status = status.toUpperCase()
-    if (priority) where.priority = priority.toUpperCase()
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ]
+    const cacheKey = `tasks:list:v1:${req.user!.userId}:${projectId}:${assigneeId}:${status}:${priority}:${search}:${limit}:${offset}`
+    const cached = kvCacheGet<{ tasks: Record<string, unknown>[]; total: number }>(cacheKey)
+    if (cached) {
+      console.log('[Cache] HIT tasks list', cacheKey.slice(0, 80))
+      return res.json(cached)
     }
 
-    const [tasks, total] = await Promise.all([
-      prisma.task.findMany({
-        where,
-        include: {
-          assignee: { select: { id: true, name: true } },
-        },
-        take: limit,
-        skip: offset,
-        orderBy: { created_at: 'desc' },
-      }),
-      prisma.task.count({ where }),
-    ])
+    const stale = kvCacheGetWithStale<{ tasks: Record<string, unknown>[]; total: number }>(cacheKey)
 
-    res.json({
-      tasks: tasks.map(t => ({
-        id: t.id,
-        project_id: t.project_id,
-        title: t.title,
-        description: t.description,
-        assignee_id: t.assignee_id,
-        assignee_name: t.assignee?.name || null,
-        assignee_initials: t.assignee?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || null,
-        parent_id: t.parent_id,
-        status: t.status.toLowerCase(),
-        priority: t.priority.toLowerCase(),
-        start_date: t.start_date,
-        due_date: t.due_date,
-        estimated_hours: t.estimated_hours,
-        completion_percentage: t.completion_percentage,
-        created_by: t.created_by,
-        created_at: t.created_at,
-      })),
-      total,
-      limit,
-      offset,
-    })
+    try {
+      const where: Record<string, unknown> = {}
+      if (projectId) where.project_id = projectId
+      if (assigneeId) where.assignee_id = assigneeId
+      if (status) where.status = status.toUpperCase()
+      if (priority) where.priority = priority.toUpperCase()
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ]
+      }
+
+      const [tasks, total] = await Promise.all([
+        prisma.task.findMany({
+          where,
+          include: {
+            assignee: { select: { id: true, name: true } },
+          },
+          take: limit,
+          skip: offset,
+          orderBy: { created_at: 'desc' },
+        }),
+        prisma.task.count({ where }),
+      ])
+
+      const result = {
+        tasks: tasks.map(t => ({
+          id: t.id,
+          project_id: t.project_id,
+          title: t.title,
+          description: t.description,
+          assignee_id: t.assignee_id,
+          assignee_name: t.assignee?.name || null,
+          assignee_initials: t.assignee?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || null,
+          parent_id: t.parent_id,
+          status: t.status.toLowerCase(),
+          priority: t.priority.toLowerCase(),
+          start_date: t.start_date,
+          due_date: t.due_date,
+          estimated_hours: t.estimated_hours,
+          completion_percentage: t.completion_percentage,
+          created_by: t.created_by,
+          created_at: t.created_at,
+        })),
+        total,
+        limit,
+        offset,
+      }
+
+      console.log('[Cache] MISS tasks list, caching result', result.tasks.length, 'tasks')
+      cacheSetList('cache_tasks', result.tasks as { id: string }[])
+      kvCacheSet(cacheKey, result)
+      return res.json(result)
+    } catch (err) {
+      if (isNetworkError(err) && stale) {
+        console.log('[Cache] STALE tasks list (offline)')
+        res.set('X-Cache-Stale', 'true')
+        return res.json(stale.data)
+      }
+      throw err
+    }
   } catch (err) {
     next(err)
   }
@@ -190,11 +213,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
   try {
     const id = req.params.id as string
 
-    // Try fresh cache first
     const cached = cacheGet<Record<string, unknown>>('cache_tasks', id)
-    if (cached) return res.json(cached)
+    if (cached) {
+      console.log('[Cache] HIT task detail', id)
+      return res.json(cached)
+    }
 
-    // Check for stale cache (offline fallback)
     const stale = cacheGetWithStale<Record<string, unknown>>('cache_tasks', id)
 
     try {
@@ -239,11 +263,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
         })),
       }
 
+      console.log('[Cache] MISS task detail, caching', id)
       cacheSet('cache_tasks', id, result)
       return res.json(result)
     } catch (err) {
-      // Neon failed — serve stale cache if available
       if (isNetworkError(err) && stale) {
+        console.log('[Cache] STALE task detail', id)
         res.set('X-Cache-Stale', 'true')
         return res.json(stale.data)
       }

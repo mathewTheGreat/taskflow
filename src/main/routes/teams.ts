@@ -4,7 +4,7 @@ import { Prisma } from '../generated/prisma-client'
 import { prisma } from '../lib/prisma.js'
 import { AppError } from '../middleware/error.js'
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
-import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, syncQueuePush } from '../services/cache.js'
+import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, cacheSetList, kvCacheSet, kvCacheGet, kvCacheGetWithStale, syncQueuePush } from '../services/cache.js'
 
 const router = Router()
 
@@ -33,30 +33,52 @@ const addMemberSchema = z.object({
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const userId = req.user!.userId
+    const cacheKey = `teams:list:v1:${userId}`
+    const cached = kvCacheGet<{ teams: Record<string, unknown>[] }>(cacheKey)
+    if (cached) {
+      console.log('[Cache] HIT teams list')
+      return res.json(cached)
+    }
 
-    const memberships = await prisma.teamMember.findMany({
-      where: { user_id: userId },
-      select: { team_id: true },
-    })
-    const teamIds = memberships.map(m => m.team_id)
+    const stale = kvCacheGetWithStale<{ teams: Record<string, unknown>[] }>(cacheKey)
 
-    const teams = await prisma.team.findMany({
-      where: { id: { in: teamIds } },
-      include: {
-        _count: { select: { members: true } },
-      },
-      orderBy: { created_at: 'desc' },
-    })
+    try {
+      const memberships = await prisma.teamMember.findMany({
+        where: { user_id: userId },
+        select: { team_id: true },
+      })
+      const teamIds = memberships.map(m => m.team_id)
 
-    res.json({
-      teams: teams.map(t => ({
-        id: t.id,
-        name: t.name,
-        description: t.description,
-        member_count: t._count.members,
-        created_at: t.created_at,
-      })),
-    })
+      const teams = await prisma.team.findMany({
+        where: { id: { in: teamIds } },
+        include: {
+          _count: { select: { members: true } },
+        },
+        orderBy: { created_at: 'desc' },
+      })
+
+      const result = {
+        teams: teams.map(t => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          member_count: t._count.members,
+          created_at: t.created_at,
+        })),
+      }
+
+      console.log('[Cache] MISS teams list, caching', result.teams.length, 'teams')
+      cacheSetList('cache_teams', result.teams as { id: string }[])
+      kvCacheSet(cacheKey, result)
+      return res.json(result)
+    } catch (err) {
+      if (isNetworkError(err) && stale) {
+        console.log('[Cache] STALE teams list (offline)')
+        res.set('X-Cache-Stale', 'true')
+        return res.json(stale.data)
+      }
+      throw err
+    }
   } catch (err) {
     next(err)
   }
@@ -110,7 +132,10 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
     const id = req.params.id as string
 
     const cached = cacheGet<Record<string, unknown>>('cache_teams', id)
-    if (cached) return res.json(cached)
+    if (cached) {
+      console.log('[Cache] HIT team detail', id)
+      return res.json(cached)
+    }
 
     const stale = cacheGetWithStale<Record<string, unknown>>('cache_teams', id)
 
@@ -144,10 +169,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next) => {
         created_at: team.created_at,
       }
 
+      console.log('[Cache] MISS team detail, caching', id)
       cacheSet('cache_teams', id, result)
       return res.json(result)
     } catch (err) {
       if (isNetworkError(err) && stale) {
+        console.log('[Cache] STALE team detail', id)
         res.set('X-Cache-Stale', 'true')
         return res.json(stale.data)
       }

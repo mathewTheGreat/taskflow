@@ -92,12 +92,13 @@ export async function createServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
   })
 
-  // Sync endpoint — replays queued offline operations
+  // Sync endpoint — push local offline changes, pull cloud data, two-way sync
   app.post('/api/sync', authMiddleware, async (req, res, next) => {
     try {
       const authHeader = req.headers.authorization
       const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
       const result = await processSyncQueue(() => token)
+      console.log('[Sync] completed:', result)
       res.json(result)
     } catch (err) {
       next(err)

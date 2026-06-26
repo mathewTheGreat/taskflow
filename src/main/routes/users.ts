@@ -3,21 +3,47 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { AppError } from '../middleware/error.js'
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
+import { kvCacheSet, kvCacheGetWithStale } from '../services/cache.js'
+import { Prisma } from '../generated/prisma-client'
 
 const router = Router()
 
 router.use(authMiddleware)
 
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientInitializationError) return true
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return ['P1001', 'P1002', 'P1008'].includes(err.code)
+  }
+  const msg = (err as Error)?.message?.toLowerCase() || ''
+  return /econnrefused|econnreset|etimedout|network.*(unreachable|error)/.test(msg)
+}
+
 router.get('/me', async (req: AuthRequest, res: Response, next) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-      select: { id: true, name: true, email: true, role: true, company: true, created_at: true },
-    })
-    if (!user) {
-      throw new AppError('User not found', 404)
+    const userId = req.user!.userId
+    const stale = kvCacheGetWithStale<Record<string, unknown>>(`user:${userId}`)
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true, role: true, company: true, created_at: true },
+      })
+      if (!user) {
+        throw new AppError('User not found', 404)
+      }
+      const result = { ...user, role: user.role.toLowerCase() }
+      console.log('[Cache] MISS user/me, caching')
+      kvCacheSet(`user:${userId}`, result)
+      res.json(result)
+    } catch (err) {
+      if (isNetworkError(err) && stale) {
+        console.log('[Cache] STALE user/me (offline)')
+        res.set('X-Cache-Stale', 'true')
+        return res.json(stale.data)
+      }
+      throw err
     }
-    res.json({ ...user, role: user.role.toLowerCase() })
   } catch (err) {
     next(err)
   }

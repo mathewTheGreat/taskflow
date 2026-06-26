@@ -7,6 +7,7 @@ import { prisma } from '../lib/prisma.js'
 import { AppError } from '../middleware/error.js'
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, AuthRequest, TokenPayload } from '../middleware/auth.js'
 import { Role } from '@shared/types'
+import { kvCacheSet } from '../services/cache.js'
 
 const authDebugDir = path.resolve(process.cwd(), 'logs')
 const authDebugPath = path.join(authDebugDir, 'auth-debug.log')
@@ -95,8 +96,12 @@ router.post('/register', asyncHandler(async (req, res: Response, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
+    const userResult = { ...user, role: user.role.toLowerCase() }
+
+    kvCacheSet(`user:${user.id}`, userResult)
+
     res.status(201).json({
-      user: { ...user, role: user.role.toLowerCase() },
+      user: userResult,
       accessToken,
       refreshToken,
     })
@@ -137,8 +142,12 @@ router.post('/login', asyncHandler(async (req, res: Response, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
+    const userResult = { id: user.id, name: user.name, email: user.email, role: user.role.toLowerCase(), company: user.company, created_at: user.created_at }
+
+    kvCacheSet(`user:${user.id}`, userResult)
+
     res.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role.toLowerCase(), company: user.company, created_at: user.created_at },
+      user: userResult,
       accessToken,
       refreshToken,
     })
