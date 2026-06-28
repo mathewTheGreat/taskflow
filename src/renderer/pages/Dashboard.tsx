@@ -1,14 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { useToast } from '../components/shared/Toast'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
-import type { DashboardData } from '@shared/types'
+import { CalendarView } from '../components/shared/CalendarView'
+import type { DashboardData, Task } from '@shared/types'
 
-export function DashboardPage() {
+interface DashboardPageProps {
+  onNavigate?: (page: string, projectId?: string) => void
+}
+
+export function DashboardPage({ onNavigate }: DashboardPageProps) {
   const { accessToken } = useAuth()
+  const { addToast } = useToast()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [allTasks, setAllTasks] = useState<Task[]>([])
+  const [allProjects, setAllProjects] = useState<{ id: string; name: string }[]>([])
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+  const [projectSearch, setProjectSearch] = useState('')
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false)
 
   useEffect(() => {
     if (!accessToken) return
@@ -17,6 +29,56 @@ export function DashboardPage() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [accessToken])
+
+  useEffect(() => {
+    if (!accessToken) return
+    api.getProjects(accessToken).then(res => {
+      setAllProjects(res.projects.map(p => ({ id: p.id, name: p.name })))
+    }).catch(() => {})
+  }, [accessToken])
+
+  useEffect(() => {
+    if (!accessToken || allProjects.length === 0) return
+    const taskParams: { limit: number; project_ids?: string } = { limit: 500 }
+    if (selectedProjectIds.length > 0) {
+      taskParams.project_ids = selectedProjectIds.join(',')
+    } else {
+      taskParams.project_ids = allProjects.map(p => p.id).join(',')
+    }
+    api.getTasks(accessToken, taskParams).then(res => setAllTasks(res.tasks)).catch(() => {})
+  }, [accessToken, selectedProjectIds, allProjects])
+
+  const filteredTasks = useMemo(() => {
+    if (selectedProjectIds.length === 0) return allTasks
+    return allTasks.filter(t => selectedProjectIds.includes(t.project_id))
+  }, [allTasks, selectedProjectIds])
+
+  const toggleProject = (id: string) => {
+    setSelectedProjectIds(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    )
+  }
+
+  const handleTaskClick = (task: Task) => {
+    onNavigate?.('project-detail', task.project_id)
+  }
+
+  const handleTaskDragUpdate = async (id: string, updates: Partial<Task>) => {
+    if (!accessToken) return
+    try {
+      await api.updateTask(accessToken, id, updates)
+      setAllTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+    } catch {
+      addToast('error', 'Failed to update task date')
+    }
+  }
+
+  const filteredProjectOptions = useMemo(() => {
+    if (!projectSearch) return allProjects
+    return allProjects.filter(p =>
+      p.name.toLowerCase().includes(projectSearch.toLowerCase())
+    )
+  }, [allProjects, projectSearch])
 
   if (loading) {
     return (
@@ -105,6 +167,78 @@ export function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Task Calendar" subtitle="All tasks across projects" />
+        <div className="dashboard-calendar-filters">
+          <div className="dashboard-calendar-chips">
+            <button
+              className={`project-chip${selectedProjectIds.length === 0 ? ' project-chip--active' : ''}`}
+              onClick={() => setSelectedProjectIds([])}
+            >
+              All Projects
+            </button>
+            {selectedProjectIds.map(id => {
+              const p = allProjects.find(proj => proj.id === id)
+              if (!p) return null
+              return (
+                <button key={id} className="project-chip project-chip--active" onClick={() => toggleProject(id)}>
+                  {p.name} <IconX className="project-chip__x" />
+                </button>
+              )
+            })}
+          </div>
+          <div className="dashboard-calendar-add" style={{ position: 'relative' }}>
+            <button
+              className="dashboard-calendar-add-btn"
+              onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+            >
+              <IconPlus />
+            </button>
+            {showProjectDropdown && (
+              <>
+                <div className="dashboard-calendar-overlay" onClick={() => setShowProjectDropdown(false)} />
+                <div className="dashboard-calendar-dropdown">
+                  <input
+                    type="text"
+                    className="dashboard-calendar-search"
+                    placeholder="Search projects..."
+                    value={projectSearch}
+                    onChange={e => setProjectSearch(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="dashboard-calendar-options">
+                    {filteredProjectOptions.map(p => {
+                      const isSelected = selectedProjectIds.includes(p.id)
+                      return (
+                        <button
+                          key={p.id}
+                          className={`dashboard-calendar-option${isSelected ? ' dashboard-calendar-option--selected' : ''}`}
+                          onClick={() => { toggleProject(p.id); setProjectSearch('') }}
+                        >
+                          <span className="dashboard-calendar-check">
+                            {isSelected ? <IconCheckSmall /> : null}
+                          </span>
+                          {p.name}
+                        </button>
+                      )
+                    })}
+                    {filteredProjectOptions.length === 0 && (
+                      <div className="dashboard-calendar-options-empty">No projects found</div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <CalendarView
+          tasks={filteredTasks}
+          onSelectTask={handleTaskClick}
+          onUpdateTask={handleTaskDragUpdate}
+          onQuickAdd={() => {}}
+        />
+      </Card>
     </div>
   )
 }
@@ -134,6 +268,9 @@ function TaskStatRow({ label, count, variant }: { label: string; count: number; 
   )
 }
 
+function IconX({ className = '' }: { className?: string }) { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> }
+function IconPlus({ className = '' }: { className?: string }) { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> }
+function IconCheckSmall() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> }
 function IconFolder() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> }
 function IconList() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> }
 function IconCheck() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> }

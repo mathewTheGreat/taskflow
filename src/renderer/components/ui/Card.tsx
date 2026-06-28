@@ -4,6 +4,7 @@ interface CardProps {
   children: ReactNode
   className?: string
   padding?: 'none' | 'sm' | 'md' | 'lg'
+  onClick?: () => void
 }
 
 const paddingMap = {
@@ -13,9 +14,15 @@ const paddingMap = {
   lg: 'card-padding--lg',
 }
 
-export function Card({ children, className = '', padding = 'md' }: CardProps) {
+export function Card({ children, className = '', padding = 'md', onClick }: CardProps) {
   return (
-    <div className={`card ${paddingMap[padding]} ${className}`}>
+    <div
+      className={`card ${paddingMap[padding]} ${onClick ? 'card--clickable' : ''} ${className}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick() } : undefined}
+    >
       {children}
     </div>
   )

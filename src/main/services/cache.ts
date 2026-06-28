@@ -197,6 +197,12 @@ export function kvCacheInvalidate(key: string): void {
   try { database.prepare(`DELETE FROM cache_kv WHERE key = ?`).run(key) } catch { /* ignore */ }
 }
 
+export function kvCacheInvalidateByPrefix(prefix: string): void {
+  const database = getDb()
+  if (!database) return
+  try { database.prepare(`DELETE FROM cache_kv WHERE key LIKE ?`).run(`${prefix}%`) } catch { /* ignore */ }
+}
+
 export function cacheInvalidate(table: string, id?: string): void {
   const database = getDb()
   if (!database) return

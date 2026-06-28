@@ -34,6 +34,17 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
       const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
+      // User's projects: owned or member of the owning team
+      const userProjectIds = await prisma.project.findMany({
+        where: {
+          OR: [
+            { owner_id: userId },
+            { team: { members: { some: { user_id: userId } } } },
+          ],
+        },
+        select: { id: true },
+      }).then(rows => rows.map(r => r.id))
+
       const [dueToday, overdue, completed, totalProjects, totalTasks, recentActivity] = await Promise.all([
         prisma.task.count({
           where: {
@@ -55,14 +66,26 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
             status: 'COMPLETED',
           },
         }),
-        prisma.project.count(),
-        prisma.task.count(),
+        prisma.project.count({
+          where: { id: { in: userProjectIds } },
+        }),
+        prisma.task.count({
+          where: { project_id: { in: userProjectIds } },
+        }),
         prisma.activityLog.findMany({
           take: 10,
           orderBy: { created_at: 'desc' },
           include: { user: { select: { name: true } } },
         }),
       ])
+
+      const overdueInUserProjects = await prisma.task.count({
+        where: {
+          project_id: { in: userProjectIds },
+          due_date: { lt: todayStart },
+          status: { not: 'COMPLETED' },
+        },
+      })
 
       const result = {
         my_tasks: {
@@ -73,8 +96,10 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
         project_summary: {
           total_projects: totalProjects,
           total_tasks: totalTasks,
-          completed_tasks: completed,
-          overdue_tasks: overdue,
+          completed_tasks: await prisma.task.count({
+            where: { project_id: { in: userProjectIds }, status: 'COMPLETED' },
+          }),
+          overdue_tasks: overdueInUserProjects,
         },
         recent_activity: recentActivity.map((a: { id: string; action: string; user: { name: string }; metadata: unknown; created_at: Date }) => ({
           id: a.id,

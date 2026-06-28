@@ -4,7 +4,7 @@ import { Prisma } from '../generated/prisma-client'
 import { prisma } from '../lib/prisma.js'
 import { AppError } from '../middleware/error.js'
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
-import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, cacheSetList, kvCacheSet, kvCacheGet, kvCacheGetWithStale } from '../services/cache.js'
+import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, cacheSetList, kvCacheSet, kvCacheGet, kvCacheGetWithStale, kvCacheInvalidate, kvCacheInvalidateByPrefix } from '../services/cache.js'
 import { syncQueuePush } from '../services/cache.js'
 
 const router = Router()
@@ -57,6 +57,7 @@ const createCommentSchema = z.object({
 router.get('/', async (req: AuthRequest, res: Response, next) => {
   try {
     const projectId = (req.query.project_id as string) || ''
+    const projectIds = (req.query.project_ids as string) || ''
     const assigneeId = (req.query.assignee_id as string) || ''
     const status = (req.query.status as string) || ''
     const priority = (req.query.priority as string) || ''
@@ -64,7 +65,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100)
     const offset = parseInt(req.query.offset as string) || 0
 
-    const cacheKey = `tasks:list:v1:${req.user!.userId}:${projectId}:${assigneeId}:${status}:${priority}:${search}:${limit}:${offset}`
+    const cacheKey = `tasks:list:v1:${req.user!.userId}:${projectId}:${projectIds}:${assigneeId}:${status}:${priority}:${search}:${limit}:${offset}`
     const cached = kvCacheGet<{ tasks: Record<string, unknown>[]; total: number }>(cacheKey)
     if (cached) {
       console.log('[Cache] HIT tasks list', cacheKey.slice(0, 80))
@@ -76,6 +77,7 @@ router.get('/', async (req: AuthRequest, res: Response, next) => {
     try {
       const where: Record<string, unknown> = {}
       if (projectId) where.project_id = projectId
+      if (projectIds) where.project_id = { in: projectIds.split(',').filter(Boolean) }
       if (assigneeId) where.assignee_id = assigneeId
       if (status) where.status = status.toUpperCase()
       if (priority) where.priority = priority.toUpperCase()
@@ -193,6 +195,7 @@ router.post('/', async (req: AuthRequest, res: Response, next) => {
     }
 
     cacheSet('cache_tasks', task.id, result)
+    kvCacheInvalidateByPrefix('tasks:list:v1:')
     res.status(201).json(result)
   } catch (err) {
     if (isNetworkError(err)) {
@@ -322,6 +325,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next) => {
     }
 
     cacheSet('cache_tasks', id, result)
+    kvCacheInvalidateByPrefix('tasks:list:v1:')
     res.json(result)
   } catch (err) {
     if (isNetworkError(err)) {
@@ -345,6 +349,7 @@ router.delete('/:id', roleMiddleware('admin', 'project_manager'), async (req: Au
     const id = req.params.id as string
     await prisma.task.delete({ where: { id } })
     cacheInvalidate('cache_tasks', id)
+    kvCacheInvalidateByPrefix('tasks:list:v1:')
     res.status(204).send()
   } catch (err) {
     if (isNetworkError(err)) {
@@ -374,6 +379,9 @@ router.post('/:id/comments', async (req: AuthRequest, res: Response, next) => {
       },
     })
 
+    const cacheKey = `tasks:comments:v1:${req.params.id}`
+    kvCacheInvalidate(cacheKey)
+
     res.status(201).json({
       id: comment.id,
       task_id: comment.task_id,
@@ -383,28 +391,63 @@ router.post('/:id/comments', async (req: AuthRequest, res: Response, next) => {
       created_at: comment.created_at,
     })
   } catch (err) {
-    next(err)
+    if (isNetworkError(err)) {
+      const taskId = req.params.id as string
+      syncQueuePush('create', 'task_comments', {
+        task_id: taskId,
+        user_id: req.user!.userId,
+        message: req.body.message,
+      })
+      res.status(503).json({ offline: true, message: 'Saved offline - will sync when connection restores' })
+    } else {
+      next(err)
+    }
   }
 })
 
 // GET /api/tasks/:id/comments
 router.get('/:id/comments', async (req: AuthRequest, res: Response, next) => {
   try {
-    const comments = await prisma.comment.findMany({
-      where: { task_id: req.params.id as string },
-      include: { user: { select: { name: true } } },
-      orderBy: { created_at: 'asc' },
-    })
+    const taskId = req.params.id as string
+    const cacheKey = `tasks:comments:v1:${taskId}`
 
-    res.json({
-      comments: comments.map((c: { id: string; user_id: string; user: { name: string }; message: string; created_at: Date }) => ({
-        id: c.id,
-        user_id: c.user_id,
-        user_name: c.user.name,
-        message: c.message,
-        created_at: c.created_at,
-      })),
-    })
+    const cached = kvCacheGet<{ comments: Record<string, unknown>[] }>(cacheKey)
+    if (cached) {
+      console.log('[Cache] HIT task comments', taskId)
+      return res.json(cached)
+    }
+
+    const stale = kvCacheGetWithStale<{ comments: Record<string, unknown>[] }>(cacheKey)
+
+    try {
+      const comments = await prisma.comment.findMany({
+        where: { task_id: taskId },
+        include: { user: { select: { name: true } } },
+        orderBy: { created_at: 'asc' },
+      })
+
+      const result = {
+        comments: comments.map(c => ({
+          id: c.id,
+          task_id: c.task_id,
+          user_id: c.user_id,
+          user_name: c.user.name,
+          message: c.message,
+          created_at: c.created_at,
+        })),
+      }
+
+      console.log('[Cache] MISS task comments, caching', taskId)
+      kvCacheSet(cacheKey, result)
+      return res.json(result)
+    } catch (err) {
+      if (isNetworkError(err) && stale) {
+        console.log('[Cache] STALE task comments (offline)', taskId)
+        res.set('X-Cache-Stale', 'true')
+        return res.json(stale.data)
+      }
+      throw err
+    }
   } catch (err) {
     next(err)
   }

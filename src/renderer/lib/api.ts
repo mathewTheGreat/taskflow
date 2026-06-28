@@ -127,13 +127,15 @@ export const api = {
     apiFetch<void>(`/projects/${id}`, { method: 'DELETE', token }),
 
   // Tasks
-  getTasks: (token: string, params?: { project_id?: string; assignee_id?: string; status?: string; priority?: string; search?: string }) => {
+  getTasks: (token: string, params?: { project_id?: string; project_ids?: string; assignee_id?: string; status?: string; priority?: string; search?: string; limit?: number }) => {
     const qs = new URLSearchParams()
     if (params?.project_id) qs.set('project_id', params.project_id)
+    if (params?.project_ids) qs.set('project_ids', params.project_ids)
     if (params?.assignee_id) qs.set('assignee_id', params.assignee_id)
     if (params?.status) qs.set('status', params.status)
     if (params?.priority) qs.set('priority', params.priority)
     if (params?.search) qs.set('search', params.search)
+    if (params?.limit) qs.set('limit', String(params.limit))
     return apiFetch<{ tasks: Task[]; total: number }>(`/tasks?${qs}`, { token })
   },
 

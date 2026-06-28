@@ -4,7 +4,7 @@ import { Prisma } from '../generated/prisma-client'
 import { prisma } from '../lib/prisma.js'
 import { AppError } from '../middleware/error.js'
 import { authMiddleware, roleMiddleware, AuthRequest } from '../middleware/auth.js'
-import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, cacheSetList, kvCacheSet, kvCacheGet, kvCacheGetWithStale, syncQueuePush } from '../services/cache.js'
+import { cacheGet, cacheGetWithStale, cacheSet, cacheInvalidate, cacheSetList, kvCacheSet, kvCacheGet, kvCacheGetWithStale, kvCacheInvalidateByPrefix, syncQueuePush } from '../services/cache.js'
 
 const router = Router()
 
@@ -157,6 +157,7 @@ router.post('/', roleMiddleware('admin', 'project_manager', 'team_member'), asyn
     }
 
     cacheSet('cache_projects', project.id, result)
+    kvCacheInvalidateByPrefix('projects:list:v1:')
     res.status(201).json(result)
   } catch (err) {
     if (isNetworkError(err)) {
@@ -257,6 +258,7 @@ router.put('/:id', roleMiddleware('admin', 'project_manager'), async (req: AuthR
     })
 
     cacheSet('cache_projects', id, project)
+    kvCacheInvalidateByPrefix('projects:list:v1:')
     res.json(project)
   } catch (err) {
     if (isNetworkError(err)) {
@@ -279,12 +281,14 @@ router.delete('/:id', roleMiddleware('admin', 'project_manager'), async (req: Au
     const id = req.params.id as string
     await prisma.project.delete({ where: { id } })
     cacheInvalidate('cache_projects', id)
+    kvCacheInvalidateByPrefix('projects:list:v1:')
     res.status(204).send()
   } catch (err) {
     if (isNetworkError(err)) {
       const id = req.params.id as string
       syncQueuePush('delete', 'projects', { id })
       cacheInvalidate('cache_projects', id)
+      kvCacheInvalidateByPrefix('projects:list:v1:')
       res.status(503).json({ offline: true, message: 'Saved offline - will sync when connection restores' })
     } else {
       next(err)

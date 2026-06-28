@@ -138,6 +138,7 @@ function createWindow() {
     title: 'TaskFlow',
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#EDEDED',
+    icon: path.join(__dirname, '..', '..', 'electron-icons', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

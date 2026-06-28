@@ -14,7 +14,7 @@ import { ToastProvider } from './components/shared/Toast'
 import { api } from './lib/api'
 
 function AppContent() {
-  const { isAuthenticated, isLoading, accessToken } = useAuth()
+  const { isAuthenticated, isLoading, accessToken, isOffline, pendingSyncCount } = useAuth()
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>()
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
@@ -50,9 +50,11 @@ function AppContent() {
     setCurrentPage('project-detail')
   }
 
-  const handleNavigate = (page: string) => {
+  const handleNavigate = (page: string, projectId?: string) => {
     setCurrentPage(page)
-    if (page !== 'project-detail') {
+    if (page === 'project-detail' && projectId) {
+      setActiveProjectId(projectId)
+    } else if (page !== 'project-detail') {
       setActiveProjectId(undefined)
     }
   }
@@ -60,7 +62,7 @@ function AppContent() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage />
+        return <DashboardPage onNavigate={handleNavigate} />
       case 'projects':
         return <ProjectsPage onProjectSelect={handleProjectSelect} onProjectCreated={loadSidebarProjects} />
       case 'project-detail':
@@ -92,6 +94,17 @@ function AppContent() {
 
   return (
     <div className="app-layout">
+      {isOffline && (
+        <div className="offline-banner">
+          <div className="offline-banner__content">
+            <IconWifiOff />
+            <span>You are offline — showing cached data</span>
+            {pendingSyncCount > 0 && (
+              <span className="offline-banner__pending">{pendingSyncCount} pending changes</span>
+            )}
+          </div>
+        </div>
+      )}
       <Sidebar
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -109,6 +122,20 @@ function AppContent() {
         </main>
       </div>
     </div>
+  )
+}
+
+function IconWifiOff() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="1" y1="1" x2="23" y2="23" />
+      <path d="M16.72 11.06A10.94 10.94 0 0119 12.55" />
+      <path d="M5 12.55a10.94 10.94 0 015.17-2.39" />
+      <path d="M10.71 5.05A16 16 0 0122.56 9" />
+      <path d="M1.42 9a15.91 15.91 0 014.7-2.88" />
+      <path d="M8.53 16.11a6 6 0 016.95 0" />
+      <line x1="12" y1="20" x2="12.01" y2="20" />
+    </svg>
   )
 }
 

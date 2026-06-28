@@ -228,45 +228,47 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
   }
 
   return (
-    <div>
-      <div className="detail-header">
-        <div className="detail-header__left">
-          <button onClick={onBack} className="detail-back">
-            <IconArrowLeft />
-          </button>
-          <div>
-            <h1 className="detail-name">{project.name}</h1>
-            {project.description && (
-              <p className="detail-desc">{project.description}</p>
-            )}
+    <div className="detail-root">
+      <Card className="detail-header-card">
+        <div className="detail-header">
+          <div className="detail-header__left">
+            <button onClick={onBack} className="detail-back">
+              <IconArrowLeft />
+            </button>
+            <div>
+              <h1 className="detail-name">{project.name}</h1>
+              {project.description && (
+                <p className="detail-desc">{project.description}</p>
+              )}
+            </div>
           </div>
+          <div className="detail-header__actions" />
         </div>
-        <div className="detail-header__actions" />
-      </div>
 
-      <div className="detail-tabs">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`detail-tab${activeTab === tab.id ? ' detail-tab--active' : ''}`}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="detail-filters">
-        <div className="detail-filters__group">
-          <FilterPill label="Due Date" value={filterDueDate || 'All'} active={!!filterDueDate} onClick={() => cycleFilter(setFilterDueDate, filterDueDate, ['undated', 'dated'])} />
-          <FilterPill label="Assignee" value={filterAssignee || 'All'} active={!!filterAssignee} onClick={() => cycleFilter(setFilterAssignee, filterAssignee, ['assigned', 'unassigned'])} />
-          <FilterPill label="Priority" value={filterPriority || 'All'} active={!!filterPriority} onClick={() => cycleFilter(setFilterPriority, filterPriority, ['high', 'medium', 'low'])} />
-          <FilterPill label="Status" value={filterStatus || 'All'} active={!!filterStatus} onClick={() => cycleFilter(setFilterStatus, filterStatus, ['pending', 'in_progress', 'completed'])} />
+        <div className="detail-tabs">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`detail-tab${activeTab === tab.id ? ' detail-tab--active' : ''}`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
         </div>
-        <Button size="sm" onClick={() => { setCreateStatus('pending'); setShowCreateTask(true) }}>
-          <IconPlus /> Add New
-        </Button>
-      </div>
+
+        <div className="detail-filters">
+          <div className="detail-filters__group">
+            <FilterPill label="Due Date" value={filterDueDate || 'All'} active={!!filterDueDate} onClick={() => cycleFilter(setFilterDueDate, filterDueDate, ['undated', 'dated'])} />
+            <FilterPill label="Assignee" value={filterAssignee || 'All'} active={!!filterAssignee} onClick={() => cycleFilter(setFilterAssignee, filterAssignee, ['assigned', 'unassigned'])} />
+            <FilterPill label="Priority" value={filterPriority || 'All'} active={!!filterPriority} onClick={() => cycleFilter(setFilterPriority, filterPriority, ['high', 'medium', 'low'])} />
+            <FilterPill label="Status" value={filterStatus || 'All'} active={!!filterStatus} onClick={() => cycleFilter(setFilterStatus, filterStatus, ['pending', 'in_progress', 'completed'])} />
+          </div>
+          <Button size="sm" onClick={() => { setCreateStatus('pending'); setShowCreateTask(true) }}>
+            <IconPlus /> Add New
+          </Button>
+        </div>
+      </Card>
 
       {showCreateTask && (
         <Card>
@@ -583,41 +585,43 @@ function TaskGroup({ status, tasks, childTasks, members, isOverdue, formatDate, 
 
       {expanded && (
         <>
-          {tasks.length > 0 ? (
-            <table className="task-table">
-              <thead>
-                <tr className="task-table__header-row">
-                  <th className="task-table__header-cell task-table__header-cell--name">Name</th>
-                  <th className="task-table__header-cell task-table__header-cell--progress">Progress</th>
-                  <th className="task-table__header-cell task-table__header-cell--assignee">Assignee</th>
-                  <th className="task-table__header-cell task-table__header-cell--due">Due Date</th>
-                  <th className="task-table__header-cell task-table__header-cell--priority">Priority</th>
-                  <th className="task-table__header-cell task-table__header-cell--actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map(task => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    childTasks={childTasks.filter(ct => ct.parent_id === task.id)}
-                    members={members}
-                    isOverdue={isOverdue}
-                    formatDate={formatDate}
-                    onStatusToggle={onStatusToggle}
-                    onStartTask={onStartTask}
-                    onPriorityChange={onPriorityChange}
-                    onUpdateTask={onUpdateTask}
-                    onDelete={onDelete}
-                    onSelect={onSelect}
-                    onInlineTitleSave={onInlineTitleSave}
-                  />
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="task-group__empty">No tasks</div>
-          )}
+          <div className="task-group__body">
+            {tasks.length > 0 ? (
+              <table className="task-table">
+                <thead>
+                  <tr className="task-table__header-row">
+                    <th className="task-table__header-cell task-table__header-cell--name">Name</th>
+                    <th className="task-table__header-cell task-table__header-cell--progress">Progress</th>
+                    <th className="task-table__header-cell task-table__header-cell--assignee">Assignee</th>
+                    <th className="task-table__header-cell task-table__header-cell--due">Due Date</th>
+                    <th className="task-table__header-cell task-table__header-cell--priority">Priority</th>
+                    <th className="task-table__header-cell task-table__header-cell--actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map(task => (
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      childTasks={childTasks.filter(ct => ct.parent_id === task.id)}
+                      members={members}
+                      isOverdue={isOverdue}
+                      formatDate={formatDate}
+                      onStatusToggle={onStatusToggle}
+                      onStartTask={onStartTask}
+                      onPriorityChange={onPriorityChange}
+                      onUpdateTask={onUpdateTask}
+                      onDelete={onDelete}
+                      onSelect={onSelect}
+                      onInlineTitleSave={onInlineTitleSave}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="task-group__empty">No tasks</div>
+            )}
+          </div>
           <div onClick={onAddTask} className="task-group__add">
             <IconPlus /> Add Task
           </div>

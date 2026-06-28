@@ -40,7 +40,7 @@ export function Sidebar({ currentPage, onNavigate, projects, onProjectSelect, ac
     <div className="app-sidebar">
       <div className="sidebar-brand">
         <div className="sidebar-brand__icon">
-          <IconCheckbox />
+          <img src="./favicon.png" alt="TaskFlow" className="sidebar-brand__img" />
         </div>
         <span className="sidebar-brand__name">TaskFlow</span>
       </div>
@@ -58,70 +58,70 @@ export function Sidebar({ currentPage, onNavigate, projects, onProjectSelect, ac
         </button>
       </div>
 
-      <nav className="sidebar-nav">
-        {navItems.map(item => (
-          <button
-            key={item.label}
-            onClick={item.onClick}
-            className={`sidebar-nav-item ${item.active ? 'sidebar-nav-item--active' : ''}`}
-          >
-            <span className="sidebar-nav-item__icon">{item.icon}</span>
-            <span className="sidebar-nav-item__label">{item.label}</span>
-            {item.badge && (
-              <span className="sidebar-nav-item__badge">{item.badge}</span>
-            )}
-          </button>
-        ))}
-      </nav>
+      <div className="sidebar-scrollable">
+        <nav className="sidebar-nav">
+          {navItems.map(item => (
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className={`sidebar-nav-item ${item.active ? 'sidebar-nav-item--active' : ''}`}
+            >
+              <span className="sidebar-nav-item__icon">{item.icon}</span>
+              <span className="sidebar-nav-item__label">{item.label}</span>
+              {item.badge && (
+                <span className="sidebar-nav-item__badge">{item.badge}</span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-      <div className="sidebar-section">
-        <div className="sidebar-section-header">
-          <button
-            onClick={() => setFavoritesExpanded(!favoritesExpanded)}
-            className="sidebar-section-toggle"
-          >
-            {favoritesExpanded ? <IconChevronDown /> : <IconChevronRight />}
-            Favorites
-          </button>
-          <button className="sidebar-section-action" title="Manage favorites (coming soon)">
-            <IconDotsHorizontal />
-          </button>
-        </div>
-        {favoritesExpanded && (
-          <div className="sidebar-section-empty">No favorites yet</div>
-        )}
-      </div>
-
-      <div className="sidebar-section">
-        <div className="sidebar-section-header">
-          <button
-            onClick={() => setProjectsExpanded(!projectsExpanded)}
-            className="sidebar-section-toggle"
-          >
-            {projectsExpanded ? <IconChevronDown /> : <IconChevronRight />}
-            Projects
-          </button>
-          <button onClick={() => onNavigate('projects')} className="sidebar-section-action">
-            <IconPlus />
-          </button>
-        </div>
-        {projectsExpanded && (
-          <div className="sidebar-project-list">
-            {projects.map(p => (
-              <button
-                key={p.id}
-                onClick={() => onProjectSelect(p.id)}
-                className={`sidebar-project-item ${activeProjectId === p.id ? 'sidebar-project-item--active' : ''}`}
-              >
-                <span className="sidebar-project-item__icon"><IconProject /></span>
-                {p.name}
-              </button>
-            ))}
+        <div className="sidebar-section">
+          <div className="sidebar-section-header">
+            <button
+              onClick={() => setFavoritesExpanded(!favoritesExpanded)}
+              className="sidebar-section-toggle"
+            >
+              {favoritesExpanded ? <IconChevronDown /> : <IconChevronRight />}
+              Favorites
+            </button>
+            <button className="sidebar-section-action" title="Manage favorites (coming soon)">
+              <IconDotsHorizontal />
+            </button>
           </div>
-        )}
-      </div>
+          {favoritesExpanded && (
+            <div className="sidebar-section-empty">No favorites yet</div>
+          )}
+        </div>
 
-      <div className="sidebar-spacer" />
+        <div className="sidebar-section">
+          <div className="sidebar-section-header">
+            <button
+              onClick={() => setProjectsExpanded(!projectsExpanded)}
+              className="sidebar-section-toggle"
+            >
+              {projectsExpanded ? <IconChevronDown /> : <IconChevronRight />}
+              Projects
+            </button>
+            <button onClick={() => onNavigate('projects')} className="sidebar-section-action">
+              <IconPlus />
+            </button>
+          </div>
+          {projectsExpanded && (
+            <div className="sidebar-project-list">
+              {projects.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => onProjectSelect(p.id)}
+                  className={`sidebar-project-item ${activeProjectId === p.id ? 'sidebar-project-item--active' : ''}`}
+                >
+                  <span className="sidebar-project-item__icon"><IconProject /></span>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <nav className="sidebar-bottom">
         {bottomItems.map(item => (
@@ -153,7 +153,6 @@ export function Sidebar({ currentPage, onNavigate, projects, onProjectSelect, ac
 }
 
 // Icons — Tabler-style, clean and minimal
-function IconCheckbox() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> }
 function IconDashboard() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> }
 function IconInbox() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg> }
 function IconTeams() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> }
